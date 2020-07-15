@@ -2,7 +2,13 @@
 
 ## Solvers
 
-- Z3 (Python); also an optimizer
+|Solver|Languages|Hints|
+|---|---|---|
+|[Google OR Tools](https://developers.google.com/optimization/introduction/overview) |Python|also an optimizer|
+|[PicoSAT](https://pypi.org/project/pycosat/) |Python||
+|[pySMT](https://github.com/pysmt/pysmt)|Python|wraps various solvers|
+|[python-constraint](https://labix.org/python-constraint) |Python||
+|[Z3](https://github.com/Z3Prover/z3/wiki) |Python|also an optimizer|
 
 ## Setup
 
