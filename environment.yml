@@ -1,0 +1,18 @@
+name: solver-demo
+channels:
+  - defaults
+dependencies:
+  - ca-certificates=2020.6.24
+  - certifi=2020.6.20
+  - openssl=1.1.1g
+  - pip=20.1.1
+  - python=3.8.3
+  - setuptools=45.2.0
+  - sqlite=3.32.3
+  - vc=14.1
+  - vs2015_runtime=14.16.27012
+  - wheel=0.34.2
+  - wincertstore=0.2
+  - zlib=1.2.11
+prefix: C:\MyData\Anaconda3\envs\solver-demo
+
