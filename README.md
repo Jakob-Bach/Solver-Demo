@@ -1,5 +1,9 @@
 # Solver Demo
 
+## Solvers
+
+- Z3 (Python); also an optimizer
+
 ## Setup
 
 ### Python Code
