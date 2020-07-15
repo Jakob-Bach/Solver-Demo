@@ -11,11 +11,12 @@ Nevertheless, that also demonstrates their API.
 |Solver|Languages|Hints|
 |---|---|---|
 |[Choco](https://choco-solver.org/) |Java|also an optimizer|
+|[Gecode](https://www.gecode.org/) | C++|also an optimizer|
 |[Google OR Tools](https://developers.google.com/optimization/introduction/overview) |Java, Python|also an optimizer|
 |[PicoSAT](https://pypi.org/project/pycosat/) |Python||
 |[pySMT](https://github.com/pysmt/pysmt)|Python|wraps various solvers|
 |[python-constraint](https://labix.org/python-constraint) |Python||
-|[Z3](https://github.com/Z3Prover/z3/wiki) |Java, Python|also an optimizer|
+|[Z3](https://github.com/Z3Prover/z3/wiki) |C++, Java, Python|also an optimizer|
 
 For all three languages (C++, Java, Python), we also provide own solution counters/enumerators:
 
@@ -56,3 +57,18 @@ Furthermore, the JAR depends on DLLs also included in the Z3 download.
 To enable access, add the `bin/` directory of your Z3 download to the environment variable `Path`.
 
 For `ORToolsDemo`, the process is similar, download is [here](https://developers.google.com/optimization/install/download) , but you need to build two Maven artifacts.
+
+### C++ Code
+
+`arithmetic_enumeration_demo` and both `flexible_enumeration_demo`s don't have any external dependencies.
+
+For `z3_demo`, you need the pre-built version of `Z3`, as for the Java pendant.
+You can put the C++ file in a Visual Studio project.
+Make sure to adapt (for all configurations, all platforms):
+
+- `Project -> Properties -> Configuration Properties -> C/C++ -> General -> Additional Include Directories` by adding the path to the `include/` directory of the Z3 download.
+- `Project -> Properties -> Configuration Properties -> Linker -> General -> Additional Library Directories` by adding the path to the `bin/` directory of the Z3 download.
+- `Project -> Properties -> Configuration Properties -> Linker -> Input -> Additional Dependencies` by adding `libz3.lib`.
+
+For `gecode_demo`, you also need to [install](https://www.gecode.org/download.html) or compile the software and reference the DLLs in a similar manner.
+See the [documentation](https://www.gecode.org/doc-latest/MPG.pdf) for more details.
