@@ -44,7 +44,7 @@ For the Java code, you can import `java_solvers` as a Maven project into Eclipse
 
 `ArithmeticEnumerationDemo` and `FlexibleEnumerationDemo` don't have any external dependencies.
 
-`ChocoDemo` should also work directly, its dependency is hosted on Maven Central.
+`ChocoDemo` and `ChocoOptimizationDemo` should also work directly, as their dependency is hosted on Maven Central.
 
 For `Z3Demo`, matters are more complicated.
 First, please download a [pre-built version of Z3](https://github.com/Z3Prover/z3/releases) and extract it.
