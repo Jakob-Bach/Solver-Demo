@@ -6,15 +6,19 @@ In all other cases, we mainly benchmark how fast the solvers are in counting all
 (In contrast to the standard case, where one is interested in finding one solution or just knowing satisfiability.)
 Nevertheless, that also demonstrates their API.
 
+Furthermore, some of the solvers can also be used for optimization.
+We show-case this with a simple knapsack problem.
+
 ## Solvers
 
 |Solver|Languages|Hints|
 |---|---|---|
 |[Choco](https://choco-solver.org/) |Java|also an optimizer|
 |[Gecode](https://www.gecode.org/) | C++|also an optimizer|
+|[GEKKO](https://gekko.readthedocs.io/en/latest/)|Python|mainly an optimizer|
 |[Google OR Tools](https://developers.google.com/optimization/introduction/overview) |Java, Python|also an optimizer|
 |[PicoSAT](https://pypi.org/project/pycosat/) |Python||
-|[pySMT](https://github.com/pysmt/pysmt)|Python|wraps various solvers|
+|[pySMT](https://github.com/pysmt/pysmt)|Python|wraps various solvers (e.g., `MathSAT`, `Z3`)|
 |[python-constraint](https://labix.org/python-constraint) |Python||
 |[Z3](https://github.com/Z3Prover/z3/wiki) |C++, Java, Python|also an optimizer|
 

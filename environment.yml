@@ -91,11 +91,16 @@ dependencies:
   - zipp=3.1.0
   - zlib=1.2.11
   - pip:
+    - click==7.1.2
+    - flask==1.1.2
+    - flask-cors==3.0.9
+    - gekko==0.2.8
+    - itsdangerous==1.1.0
     - ortools==7.7.7810
     - protobuf==3.12.2
     - pycosat==0.6.3
     - pysmt==0.9.0
     - python-constraint==1.4.0
+    - werkzeug==1.0.1
     - z3-solver==4.8.8.0
 prefix: C:\MyData\Anaconda3\envs\solver-demo
-
