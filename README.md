@@ -1,13 +1,12 @@
 # Solver Demo
 
-We demonstrate the functionality of multiple SAT/SMT solvers in multiple programming languages.
-The broadest demo is for `Z3` in Python (`Z3_Demo.ipynb`).
-In all other cases, we mainly benchmark how fast the solvers are in counting all solutions for a simple AND or OR formula.
-(In contrast to the standard case, where one is interested in finding one solution or just knowing satisfiability.)
-Nevertheless, that also demonstrates their API.
+We demonstrate and benchmark the functionality of multiple SAT/SMT solvers/optimizers in multiple programming languages.
+We have two use cases:
 
-Furthermore, some of the solvers can also be used for optimization.
-We show-case this with a simple knapsack problem.
+- use case 1: counting (by enumerating) all solutions for a simple AND or OR formula
+- use case 2: solving a simple knapsack problem
+
+This project serves as playground for our research project on [constrained feature selection](https://github.com/Jakob-Bach/CFFS).
 
 ## Solvers
 
@@ -22,10 +21,10 @@ We show-case this with a simple knapsack problem.
 |[python-constraint](https://labix.org/python-constraint) |Python||
 |[Z3](https://github.com/Z3Prover/z3/wiki) |C++, Java, Python|also an optimizer|
 
-For all three languages (C++, Java, Python), we also provide own solution counters/enumerators:
+For all three languages (C++, Java, Python), we also implement own solution counters/enumerators (regarding use case 1):
 
-- tailored to the specific benchmark formulas (AND, OR), converted to an arithmetic representation
-- for arbitrary logical expressions, constructed in an object-oriented manner
+- option 1 ("arithmetic enumeration"): tailored to the specific benchmark formulas (AND, OR), converted to an arithmetic representation
+- option 2 ("flexible enumeration"): for arbitrary logical expressions, constructed in an object-oriented manner
 
 ## Setup
 
