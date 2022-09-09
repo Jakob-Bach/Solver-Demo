@@ -1,14 +1,17 @@
 # Solver Demo
 
-We demonstrate and benchmark the functionality of multiple SAT/SMT solvers/optimizers in multiple programming languages.
-We have two use cases:
+We demonstrate and benchmark the functionality of multiple SAT/SMT/MIP solvers/optimizers in multiple programming languages.
+This repo serves as a playground for various research projects.
 
-- use case 1: counting (by enumerating) all solutions for a simple AND or OR formula
-- use case 2: solving a simple knapsack problem
+Use cases include:
 
-This project serves as playground for our research project on [constrained feature selection](https://github.com/Jakob-Bach/CFFS).
+- counting (by enumerating) all solutions for a simple AND or OR formula (`c_solvers/`, `java_solvers/`, `Solver_Enumeration_Benchmark.ipynb`)
+- MIP/SMT models of a simple knapsack problem (`Knapsack_Demo.ipynb`, `Z3_Demo.ipynb`)
+- SMT models of different filter feature-selection techniques (`filter_fs_benchmark.py`)
+- an SMT model of a [multi-round auction](https://doi.org/10.1109/ACCESS.2022.3154445) (`SMR_Auction_Demo.ipynb`)
+- MIP/SMT models of the [K-Portfolio Problem](https://doi.org/10.4230/LIPIcs.SAT.2022.2) (`small_portfolios_demo.py`)
 
-## Solvers
+## Testing Solvers for Constrained Feature Selection
 
 |Solver|Languages|Hints|
 |---|---|---|
@@ -21,7 +24,7 @@ This project serves as playground for our research project on [constrained featu
 |[python-constraint](https://labix.org/python-constraint) |Python||
 |[Z3](https://github.com/Z3Prover/z3/wiki) |C++, Java, Python|also an optimizer|
 
-For all three languages (C++, Java, Python), we also implement own solution counters/enumerators (regarding use case 1):
+For all three languages (C++, Java, Python), we also implement own solution counters/enumerators:
 
 - option 1 ("arithmetic enumeration"): tailored to the specific benchmark formulas (AND, OR), converted to an arithmetic representation
 - option 2 ("flexible enumeration"): for arbitrary logical expressions, constructed in an object-oriented manner

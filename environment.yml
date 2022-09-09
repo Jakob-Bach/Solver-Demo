@@ -16,7 +16,6 @@ dependencies:
   - brotlipy=0.7.0=py38h2bbff1b_1003
   - ca-certificates=2022.07.19=haa95532_0
   - certifi=2022.6.15=py38haa95532_0
-  - cffi=1.15.1=py38h2bbff1b_0
   - charset-normalizer=2.0.4=pyhd3eb1b0_0
   - colorama=0.4.5=py38haa95532_0
   - cryptography=37.0.1=py38h21b164f_0
@@ -140,16 +139,24 @@ dependencies:
   - zipp=3.8.0=py38haa95532_0
   - zlib=1.2.12=h8cc25b3_2
   - pip:
+    - cffi==1.15.0
     - click==7.1.2
+    - cvxpy==1.2.1
+    - ecos==2.0.10
     - flask==1.1.2
     - flask-cors==3.0.9
     - gekko==0.2.8
     - itsdangerous==1.1.0
+    - mip==1.14.1
     - ortools==7.7.7810
+    - osqp==0.6.2.post5
     - protobuf==3.12.2
+    - pulp==2.6.0
     - pycosat==0.6.3
     - pysmt==0.9.0
     - python-constraint==1.4.0
+    - qdldl==0.1.5.post2
+    - scs==3.2.0
     - werkzeug==1.0.1
     - z3-solver==4.8.8.0
 prefix: C:\MyData\Miniconda3\envs\solver-demo
