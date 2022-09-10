@@ -5,11 +5,14 @@ This repo serves as a playground for various research projects.
 
 Use cases include:
 
-- counting (by enumerating) all solutions for a simple AND or OR formula (`c_solvers/`, `java_solvers/`, `Solver_Enumeration_Benchmark.ipynb`)
-- MIP/SMT models of a simple knapsack problem (`Knapsack_Demo.ipynb`, `Z3_Demo.ipynb`)
-- SMT models of different filter feature-selection techniques (`filter_fs_benchmark.py`)
-- an SMT model of a [multi-round auction](https://doi.org/10.1109/ACCESS.2022.3154445) (`SMR_Auction_Demo.ipynb`)
-- MIP/SMT models of the [K-Portfolio Problem](https://doi.org/10.4230/LIPIcs.SAT.2022.2) (`small_portfolios_demo.py`)
+|Use case|File(s)/folder(s)|Related project repo|Related paper|
+|---|---|---|---|
+|Counting (by enumerating) all solutions for a simple AND or OR formula|`c_solvers/*`, `java_solvers/*`, `Solver_Enumeration_Benchmark.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
+|MIP/SMT models of a simple knapsack problem|`java_solvers/ChocoOptimizationDemo.java`, `Knapsack_Demo.ipynb`, `Z3_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
+|SMT models of different filter feature-selection techniques|`filter_fs_benchmark.py`|||
+|SMT model of a simultaneous multi-round auction |`SMR_Auction_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Analyzing-Auction-Verification)|[paper](https://doi.org/10.1109/ACCESS.2022.3154445)|
+|MIP/SMT models of the K-Portfolio Problem|`small_portfolios_demo.py`|[repo](https://github.com/Jakob-Bach/Small-Portfolios)|[paper](https://doi.org/10.4230/LIPIcs.SAT.2022.2)|
+|MIP/SMT models of the (Simultaneous) Alternative-Feature-Selection Problem|`simultaneous_afs_benchmark.py`|||
 
 ## Testing Solvers for Constrained Feature Selection
 
