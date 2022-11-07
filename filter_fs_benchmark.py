@@ -25,21 +25,35 @@ target_correlation = X.corrwith(y).abs().values
 feature_correlation = X.corr().abs().values
 
 
+# Run Z3 and return a tuple (objective value, list of binary selection decisions)
+def optimize_smt(optimizer: z3.Optimize, objective: z3.z3.OptimizeObjective,
+                 selection_variables: List[z3.z3.BoolRef]) -> Tuple[float, List[bool]]:
+    optimizer.check()
+    if isinstance(objective.value(), z3.IntNumRef):
+        objective_value = objective.value()
+    else:  # RatNumRef
+        objective_value = (objective.value().numerator_as_long() /
+                           objective.value().denominator_as_long())
+    selection = [str(optimizer.model()[var]) == 'True' for var in selection_variables]
+    return objective_value, selection
+
+
 # Univariate feature scoring, without redundancy terms
 # "k" = number of features to be selected (else all features selected, as unconstrained problem)
-def univariate_optimizer(k: int = 3) -> Tuple[z3.z3.Optimize, z3.z3.OptimizeObjective, List[z3.z3.BoolRef]]:
+def univariate_optimizer_smt(k: int = 3) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     objective = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
     objective = optimizer.maximize(objective)
     optimizer.add(z3.AtMost(*selection_variables, k))
-    return optimizer, objective, selection_variables
+    return optimize_smt(optimizer=optimizer, objective=objective,
+                        selection_variables=selection_variables)
 
 
 # CFS (Correlation-based Feature Selection) -- Hall et al. (1999): "Feature Selection for Machine
 # Learning: Comparing a Correlation-based Filter Approach to the Wrapper"
 # also, see https://en.wikipedia.org/wiki/Feature_selection#Correlation_feature_selection
-def cfs_optimizer() -> Tuple[z3.z3.Optimize, z3.z3.OptimizeObjective, List[z3.z3.BoolRef]]:
+def cfs_optimizer_smt() -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     relevance = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
@@ -54,14 +68,15 @@ def cfs_optimizer() -> Tuple[z3.z3.Optimize, z3.z3.OptimizeObjective, List[z3.z3
     objective = relevance / redundancy
     objective = optimizer.maximize(objective)
     optimizer.add(z3.Or(selection_variables))  # one feature needs to be selected, else div by zero
-    return optimizer, objective, selection_variables
+    return optimize_smt(optimizer=optimizer, objective=objective,
+                        selection_variables=selection_variables)
 
 
 # FCBF (Fast Correlation-Based Filter) -- Yu et. al (2003): "Feature Selection for High-Dimensional
 # Data: A Fast Correlation-Based Filter Solution"
 # "delta" = minimum relevance of selected features (even if 0, number of features reduced because
 # redundancy constraints)
-def fcbf_optimizer(delta: float = 0) -> Tuple[z3.z3.Optimize, z3.z3.OptimizeObjective, List[z3.z3.BoolRef]]:
+def fcbf_optimizer_smt(delta: float = 0) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     objective = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
@@ -74,13 +89,14 @@ def fcbf_optimizer(delta: float = 0) -> Tuple[z3.z3.Optimize, z3.z3.OptimizeObje
         optimizer.add(z3.And([z3.Implies(z3.And(selection_variables[i], selection_variables[j]),
                                          z3.Not(z3.BoolVal(feature_correlation[j, i] >= target_correlation[i])))
                               for j in range(len(selection_variables)) if i != j]))
-    return optimizer, objective, selection_variables
+    return optimize_smt(optimizer=optimizer, objective=objective,
+                        selection_variables=selection_variables)
 
 
 # mRMR (Minimal Redundancy Maximal Relevance) -- Peng et al. (2005): "Feature Selection Based on
 # Mutual Information: Criteria of Max-Dependency, Max-Relevance, and Min-Redundancy"
 # also, see https://en.wikipedia.org/wiki/Feature_selection#Minimum-redundancy-maximum-relevance_(mRMR)_feature_selection
-def mrmr_optimizer() -> Tuple[z3.z3.Optimize, z3.z3.OptimizeObjective, List[z3.z3.BoolRef]]:
+def mrmr_optimizer_smt() -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     k = z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables])
@@ -94,24 +110,21 @@ def mrmr_optimizer() -> Tuple[z3.z3.Optimize, z3.z3.OptimizeObjective, List[z3.z
     objective = relevance - redundancy
     objective = optimizer.maximize(objective)
     optimizer.add(z3.Or(selection_variables))  # one feature needs to be selected, else div by zero
-    return optimizer, objective, selection_variables
+    return optimize_smt(optimizer=optimizer, objective=objective,
+                        selection_variables=selection_variables)
 
 
 # Functions used in the benchmark:
-FS_FUNCTIONS = [univariate_optimizer, cfs_optimizer, fcbf_optimizer, mrmr_optimizer]
+FS_FUNCTIONS = [univariate_optimizer_smt, cfs_optimizer_smt, fcbf_optimizer_smt, mrmr_optimizer_smt]
 
 
 # Run one feature-selection function once and return results as dictionary.
-def run_one_benchmark(func: Callable[[], Tuple[z3.z3.Optimize, z3.z3.OptimizeObjective,
-                                               List[z3.z3.BoolRef]]]) -> Dict[str, Any]:
+def run_one_benchmark(func: Callable[[], Tuple[float, List[bool]]]) -> Dict[str, Any]:
     start_time = time.process_time()
-    optimizer, objective, selection_variables = func()
-    optimizer.check()
+    objective, selection = func()
     end_time = time.process_time()
-    return {'method': func.__name__.replace('_optimizer', ''),
-            'time': end_time - start_time,
-            'objective': str(objective.value()),
-            'selection': [str(optimizer.model()[var]) == 'True' for var in selection_variables]}
+    return {'method': func.__name__.replace('_optimizer', ''), 'time': end_time - start_time,
+            'objective': objective, 'selection': selection}
 
 
 # Main method, running multiple FS methods for "n_iterations" each, parallelizing runs over
@@ -137,7 +150,7 @@ if __name__ == '__main__':
                         help='Number of repetitions for each feature-selection method.')
     results = run_benchmarks(**vars(parser.parse_args()))
     results['selection'] = results['selection'].apply(tuple)
-    print('---Runtime---')
+    print('---Runtime (in s)---')
     print(results.groupby('method')['time'].describe().round(2))
     print('---Number of different objective values---')
     print(results.groupby('method')['objective'].nunique())
