@@ -1,4 +1,4 @@
-"""Benchmark filter feature selection with Z3
+"""Benchmark filter feature selection with OR-Tools (MIP formulation) and Z3 (SMT formulation)
 
 Implements various filter-feature-selection methods and benchmarks them.
 
@@ -11,6 +11,7 @@ import multiprocessing
 import time
 from typing import Any, Callable, Dict, List, Tuple
 
+from ortools.linear_solver import pywraplp
 import pandas as pd
 import sklearn.datasets
 import tqdm
@@ -23,6 +24,14 @@ X = pd.DataFrame(data=dataset.data, columns=dataset.feature_names)
 y = pd.Series(dataset.target, name=dataset.target_names[0])
 target_correlation = X.corrwith(y).abs().values
 feature_correlation = X.corr().abs().values
+
+
+# Run OR-Tools and return a tuple (objective value, list of binary selection decisions)
+def optimize_mip(optimizer, selection_variables) -> Tuple[float, List[bool]]:
+    optimizer.Solve()
+    objective_value = optimizer.Objective().Value()
+    selection = [bool(var.solution_value()) for var in selection_variables]
+    return objective_value, selection
 
 
 # Run Z3 and return a tuple (objective value, list of binary selection decisions)
@@ -40,6 +49,15 @@ def optimize_smt(optimizer: z3.Optimize, objective: z3.z3.OptimizeObjective,
 
 # Univariate feature scoring, without redundancy terms
 # "k" = number of features to be selected (else all features selected, as unconstrained problem)
+def univariate_optimizer_mip(k: int = 3) -> Tuple[float, List[bool]]:
+    optimizer = pywraplp.Solver_CreateSolver('CBC')
+    selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
+    objective = optimizer.Sum([var * val for (var, val) in zip(selection_variables, target_correlation)])
+    optimizer.Maximize(objective)
+    optimizer.Add(optimizer.Sum(selection_variables) <= k)
+    return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
+
+
 def univariate_optimizer_smt(k: int = 3) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
@@ -115,7 +133,8 @@ def mrmr_optimizer_smt() -> Tuple[float, List[bool]]:
 
 
 # Functions used in the benchmark:
-FS_FUNCTIONS = [univariate_optimizer_smt, cfs_optimizer_smt, fcbf_optimizer_smt, mrmr_optimizer_smt]
+FS_FUNCTIONS = [univariate_optimizer_mip, univariate_optimizer_smt,
+                cfs_optimizer_smt, fcbf_optimizer_smt, mrmr_optimizer_smt]
 
 
 # Run one feature-selection function once and return results as dictionary.
