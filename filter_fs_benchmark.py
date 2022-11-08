@@ -92,13 +92,36 @@ def cfs_optimizer_smt() -> Tuple[float, List[bool]]:
 
 # FCBF (Fast Correlation-Based Filter) -- Yu et. al (2003): "Feature Selection for High-Dimensional
 # Data: A Fast Correlation-Based Filter Solution"
+# Rephrased as optimization problem with an objective, while the original paper only has constraints
+# and searches for valid solutions heuristically.
+# "k" = number of features to be selected (procedure would also work without specifying this)
 # "delta" = minimum relevance of selected features (even if 0, number of features reduced because
 # redundancy constraints)
-def fcbf_optimizer_smt(delta: float = 0) -> Tuple[float, List[bool]]:
+def fcbf_optimizer_mip(k: int = 3, delta: float = 0) -> Tuple[float, List[bool]]:
+    optimizer = pywraplp.Solver_CreateSolver('CBC')
+    selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
+    objective = optimizer.Sum([var * val for (var, val) in zip(selection_variables, target_correlation)])
+    optimizer.Maximize(objective)
+    optimizer.Add(optimizer.Sum(selection_variables) <= k)
+    for i in range(len(selection_variables)):  # select only features which are predominant
+        # Condition 1 (relevance) for predominance: dependency to target has to be over threshold
+        if target_correlation[i] < delta:
+            optimizer.Add(selection_variables[i] == 0)
+        # Condition 2 (redundancy) for predominance: no other feature selected that has higher
+        # dependency to current feature than current feature has to target
+        for j in range(i):
+            if ((target_correlation[i] <= feature_correlation[j, i]) or
+                (target_correlation[j] <= feature_correlation[i, j])):
+                optimizer.Add(selection_variables[i] + selection_variables[j] <= 1)
+    return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
+
+
+def fcbf_optimizer_smt(k: int = 3, delta: float = 0) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     objective = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
-    objective = optimizer.maximize(objective)  # original paper does not have target, only constraints
+    objective = optimizer.maximize(objective)
+    optimizer.add(z3.AtMost(*selection_variables, k))
     for i in range(len(selection_variables)):  # select only features which are predominant
         # Condition 1 (relevance) for predominance: dependency to target has to be over threshold
         optimizer.add(z3.Implies(selection_variables[i], z3.BoolVal(target_correlation[i] >= delta)))
@@ -134,7 +157,7 @@ def mrmr_optimizer_smt() -> Tuple[float, List[bool]]:
 
 # Functions used in the benchmark:
 FS_FUNCTIONS = [univariate_optimizer_mip, univariate_optimizer_smt,
-                cfs_optimizer_smt, fcbf_optimizer_smt, mrmr_optimizer_smt]
+                cfs_optimizer_smt, fcbf_optimizer_mip, fcbf_optimizer_smt, mrmr_optimizer_smt]
 
 
 # Run one feature-selection function once and return results as dictionary.
