@@ -137,10 +137,36 @@ def fcbf_optimizer_smt(k: int = 3, delta: float = 0) -> Tuple[float, List[bool]]
 # mRMR (Minimal Redundancy Maximal Relevance) -- Peng et al. (2005): "Feature Selection Based on
 # Mutual Information: Criteria of Max-Dependency, Max-Relevance, and Min-Redundancy"
 # also, see https://en.wikipedia.org/wiki/Feature_selection#Minimum-redundancy-maximum-relevance_(mRMR)_feature_selection
-def mrmr_optimizer_smt() -> Tuple[float, List[bool]]:
+# "k" = number of features to be selected (procedure would also work without specifying this)
+def mrmr_optimizer_mip(k: int = 3) -> Tuple[float, List[bool]]:
+    optimizer = pywraplp.Solver_CreateSolver('CBC')
+    selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
+    relevance = optimizer.Sum([var * val for (var, val) in zip(selection_variables, target_correlation)])
+    relevance = relevance / k
+    redundancy = []
+    for i in range(len(selection_variables)):
+        for j in range(i + 1):
+            if i == j:
+                redundancy.append(feature_correlation[i, i] * selection_variables[i])
+            else:  # one interaction variables for two product terms
+                interaction_var_name = selection_variables[i].name() + '*' + selection_variables[j].name()
+                interaction_var = optimizer.BoolVar(name=interaction_var_name)
+                optimizer.Add(interaction_var <= selection_variables[i])
+                optimizer.Add(interaction_var <= selection_variables[j])
+                optimizer.Add(1 + interaction_var >= selection_variables[i] + selection_variables[j])
+                redundancy.append(feature_correlation[i, j] * interaction_var)
+                redundancy.append(feature_correlation[j, i] * interaction_var)
+    redundancy = optimizer.Sum(redundancy) / (k * k)
+    objective = relevance - redundancy
+    optimizer.Maximize(objective)
+    optimizer.Add(optimizer.Sum(selection_variables) <= k)
+    return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
+
+
+def mrmr_optimizer_smt(k: int = 3) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
-    k = z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables])
+    # k = z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables])
     relevance = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
     relevance = relevance / k
     redundancy = z3.Sum(*[z3.If(z3.And(selection_variables[i], selection_variables[j]),
@@ -157,7 +183,8 @@ def mrmr_optimizer_smt() -> Tuple[float, List[bool]]:
 
 # Functions used in the benchmark:
 FS_FUNCTIONS = [univariate_optimizer_mip, univariate_optimizer_smt,
-                cfs_optimizer_smt, fcbf_optimizer_mip, fcbf_optimizer_smt, mrmr_optimizer_smt]
+                cfs_optimizer_smt, fcbf_optimizer_mip, fcbf_optimizer_smt,
+                mrmr_optimizer_mip, mrmr_optimizer_smt]
 
 
 # Run one feature-selection function once and return results as dictionary.
