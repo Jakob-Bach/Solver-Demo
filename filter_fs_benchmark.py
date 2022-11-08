@@ -24,6 +24,7 @@ X = pd.DataFrame(data=dataset.data, columns=dataset.feature_names)
 y = pd.Series(dataset.target, name=dataset.target_names[0])
 target_correlation = X.corrwith(y).abs().values
 feature_correlation = X.corr().abs().values
+k = 3
 
 
 # Run OR-Tools and return a tuple (objective value, list of binary selection decisions)
@@ -49,7 +50,7 @@ def optimize_smt(optimizer: z3.Optimize, objective: z3.z3.OptimizeObjective,
 
 # Univariate feature scoring, without redundancy terms
 # "k" = number of features to be selected (else all features selected, as unconstrained problem)
-def univariate_optimizer_mip(k: int = 3) -> Tuple[float, List[bool]]:
+def univariate_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
     optimizer = pywraplp.Solver_CreateSolver('CBC')
     selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
     objective = optimizer.Sum([var * val for (var, val) in zip(selection_variables, target_correlation)])
@@ -58,7 +59,7 @@ def univariate_optimizer_mip(k: int = 3) -> Tuple[float, List[bool]]:
     return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
 
 
-def univariate_optimizer_smt(k: int = 3) -> Tuple[float, List[bool]]:
+def univariate_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     objective = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
@@ -71,7 +72,48 @@ def univariate_optimizer_smt(k: int = 3) -> Tuple[float, List[bool]]:
 # CFS (Correlation-based Feature Selection) -- Hall et al. (1999): "Feature Selection for Machine
 # Learning: Comparing a Correlation-based Filter Approach to the Wrapper"
 # also, see https://en.wikipedia.org/wiki/Feature_selection#Correlation_feature_selection
-def cfs_optimizer_smt() -> Tuple[float, List[bool]]:
+# "k" = number of features to be selected (procedure would also work without specifying this)
+def cfs_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
+    optimizer = pywraplp.Solver_CreateSolver('CBC')
+    selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
+    # for chosen approach to linearize fraction term (relevance divided by redundancy),
+    # see Chang (2001) "On the polynomial mixed 0-1 fractional programming problems"
+    denominator_var = optimizer.NumVar(name='y', lb=0, ub=1)
+    relevance_terms = []  # note that we square relevance term to remove sqrt from redundacy term
+    redundancy_terms = []
+    M = X.shape[1] ** 2 + 1  # some large value we use to deactivate constraints conditionally
+    for i in range(len(selection_variables)):
+        for j in range(i + 1):
+            if i == j:
+                interaction_var = optimizer.NumVar(
+                    name=selection_variables[i].name() + '*' + denominator_var.name(), lb=0, ub=M)
+                optimizer.Add(interaction_var <= denominator_var)
+                optimizer.Add(interaction_var <= M * selection_variables[i])
+                relevance_terms.append(target_correlation[i] ** 2 * interaction_var)
+            else:
+                interaction_var = optimizer.NumVar(
+                    name=selection_variables[i].name() + '*' + selection_variables[j].name() + '*' +
+                    denominator_var.name(), lb=0, ub=M)
+                optimizer.Add(M * (selection_variables[i] + selection_variables[j] - 2) +
+                              denominator_var <= interaction_var)
+                optimizer.Add(interaction_var <= M * (2 - selection_variables[i] -
+                                                      selection_variables[j]) + denominator_var)
+                optimizer.Add(interaction_var <= M * selection_variables[i])
+                optimizer.Add(interaction_var <= M * selection_variables[j])
+                relevance_terms.append(2 * target_correlation[i] * target_correlation[j] *
+                                       interaction_var)
+                redundancy_terms.append(feature_correlation[i, j] * interaction_var)
+                redundancy_terms.append(feature_correlation[j, i] * interaction_var)
+    redundancy_terms.append(k * denominator_var)
+    objective = optimizer.Sum(relevance_terms)
+    objective = optimizer.Maximize(objective)
+    optimizer.Add(optimizer.Sum(redundancy_terms) == 1)
+    optimizer.Add(optimizer.Sum(selection_variables) <= k)
+    return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
+
+
+# This version of CFS is probably buggy, as it's non-deterministic (objective value varies wildly).
+def cfs_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     relevance = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
@@ -81,7 +123,7 @@ def cfs_optimizer_smt() -> Tuple[float, List[bool]]:
                           for i in range(len(selection_variables))
                           for j in range(len(selection_variables))
                           if i != j])
-    k = z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables])
+    # k = z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables])
     redundancy = k + redundancy
     objective = relevance / redundancy
     objective = optimizer.maximize(objective)
@@ -97,7 +139,7 @@ def cfs_optimizer_smt() -> Tuple[float, List[bool]]:
 # "k" = number of features to be selected (procedure would also work without specifying this)
 # "delta" = minimum relevance of selected features (even if 0, number of features reduced because
 # redundancy constraints)
-def fcbf_optimizer_mip(k: int = 3, delta: float = 0) -> Tuple[float, List[bool]]:
+def fcbf_optimizer_mip(k: int, delta: float = 0) -> Tuple[float, List[bool]]:
     optimizer = pywraplp.Solver_CreateSolver('CBC')
     selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
     objective = optimizer.Sum([var * val for (var, val) in zip(selection_variables, target_correlation)])
@@ -116,7 +158,7 @@ def fcbf_optimizer_mip(k: int = 3, delta: float = 0) -> Tuple[float, List[bool]]
     return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
 
 
-def fcbf_optimizer_smt(k: int = 3, delta: float = 0) -> Tuple[float, List[bool]]:
+def fcbf_optimizer_smt(k: int, delta: float = 0) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     objective = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
@@ -138,7 +180,7 @@ def fcbf_optimizer_smt(k: int = 3, delta: float = 0) -> Tuple[float, List[bool]]
 # Mutual Information: Criteria of Max-Dependency, Max-Relevance, and Min-Redundancy"
 # also, see https://en.wikipedia.org/wiki/Feature_selection#Minimum-redundancy-maximum-relevance_(mRMR)_feature_selection
 # "k" = number of features to be selected (procedure would also work without specifying this)
-def mrmr_optimizer_mip(k: int = 3) -> Tuple[float, List[bool]]:
+def mrmr_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
     optimizer = pywraplp.Solver_CreateSolver('CBC')
     selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
     relevance = optimizer.Sum([var * val for (var, val) in zip(selection_variables, target_correlation)])
@@ -163,7 +205,7 @@ def mrmr_optimizer_mip(k: int = 3) -> Tuple[float, List[bool]]:
     return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
 
 
-def mrmr_optimizer_smt(k: int = 3) -> Tuple[float, List[bool]]:
+def mrmr_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     # k = z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables])
@@ -183,14 +225,15 @@ def mrmr_optimizer_smt(k: int = 3) -> Tuple[float, List[bool]]:
 
 # Functions used in the benchmark:
 FS_FUNCTIONS = [univariate_optimizer_mip, univariate_optimizer_smt,
-                cfs_optimizer_smt, fcbf_optimizer_mip, fcbf_optimizer_smt,
+                cfs_optimizer_mip, cfs_optimizer_smt,
+                fcbf_optimizer_mip, fcbf_optimizer_smt,
                 mrmr_optimizer_mip, mrmr_optimizer_smt]
 
 
 # Run one feature-selection function once and return results as dictionary.
 def run_one_benchmark(func: Callable[[], Tuple[float, List[bool]]]) -> Dict[str, Any]:
     start_time = time.process_time()
-    objective, selection = func()
+    objective, selection = func(k=k)
     end_time = time.process_time()
     return {'method': func.__name__.replace('_optimizer', ''), 'time': end_time - start_time,
             'objective': objective, 'selection': selection}
