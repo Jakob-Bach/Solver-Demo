@@ -22,6 +22,11 @@ import z3
 dataset = sklearn.datasets.fetch_california_housing()  # alternative in sklearn: load_diabetes()
 X = pd.DataFrame(data=dataset.data, columns=dataset.feature_names)
 y = pd.Series(dataset.target, name=dataset.target_names[0])
+
+# # Alternative dataset that allows to vary problem size (also from sklearn):
+# X, y = sklearn.datasets.make_regression(n_samples=100, n_features=10, n_informative=3, random_state=25)
+# X, y = pd.DataFrame(X), pd.Series(y)
+
 target_correlation = X.corrwith(y).abs().values
 feature_correlation = X.corr().abs().values
 k = 3
