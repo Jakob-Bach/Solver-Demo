@@ -60,7 +60,7 @@ def univariate_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
     selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
     objective = optimizer.Sum([var * val for (var, val) in zip(selection_variables, target_correlation)])
     optimizer.Maximize(objective)
-    optimizer.Add(optimizer.Sum(selection_variables) <= k)
+    optimizer.Add(optimizer.Sum(selection_variables) == k)
     return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
 
 
@@ -69,7 +69,7 @@ def univariate_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     objective = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
     objective = optimizer.maximize(objective)
-    optimizer.add(z3.AtMost(*selection_variables, k))
+    optimizer.add(z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables]) == k)
     return optimize_smt(optimizer=optimizer, objective=objective,
                         selection_variables=selection_variables)
 
@@ -113,7 +113,7 @@ def cfs_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
     objective = optimizer.Sum(relevance_terms)
     objective = optimizer.Maximize(objective)
     optimizer.Add(optimizer.Sum(redundancy_terms) == 1)
-    optimizer.Add(optimizer.Sum(selection_variables) <= k)
+    optimizer.Add(optimizer.Sum(selection_variables) == k)
     return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
 
 
@@ -156,7 +156,7 @@ def cfs_optimizer_mip2(k: int) -> Tuple[float, List[bool]]:
     objective = optimizer.Sum(relevance_terms)
     objective = optimizer.Maximize(objective)
     optimizer.Add(optimizer.Sum(redundancy_terms) == 1)
-    optimizer.Add(optimizer.Sum(x) <= k)
+    optimizer.Add(optimizer.Sum(x) == k)
     return optimize_mip(optimizer=optimizer, selection_variables=x)
 
 
@@ -175,7 +175,7 @@ def cfs_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
     redundancy = k + redundancy
     objective = relevance / redundancy
     objective = optimizer.maximize(objective)
-    optimizer.add(z3.Or(selection_variables))  # one feature needs to be selected, else div by zero
+    optimizer.add(z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables]) == k)
     return optimize_smt(optimizer=optimizer, objective=objective,
                         selection_variables=selection_variables)
 
@@ -192,7 +192,7 @@ def fcbf_optimizer_mip(k: int, delta: float = 0) -> Tuple[float, List[bool]]:
     selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
     objective = optimizer.Sum([var * val for (var, val) in zip(selection_variables, target_correlation)])
     optimizer.Maximize(objective)
-    optimizer.Add(optimizer.Sum(selection_variables) <= k)
+    optimizer.Add(optimizer.Sum(selection_variables) == k)
     for i in range(len(selection_variables)):  # select only features which are predominant
         # Condition 1 (relevance) for predominance: dependency to target has to be over threshold
         if target_correlation[i] < delta:
@@ -211,7 +211,7 @@ def fcbf_optimizer_smt(k: int, delta: float = 0) -> Tuple[float, List[bool]]:
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
     objective = z3.Sum(*[z3.If(var, val, 0) for var, val in zip(selection_variables, target_correlation)])
     objective = optimizer.maximize(objective)
-    optimizer.add(z3.AtMost(*selection_variables, k))
+    optimizer.add(z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables]) == k)
     for i in range(len(selection_variables)):  # select only features which are predominant
         # Condition 1 (relevance) for predominance: dependency to target has to be over threshold
         optimizer.add(z3.Implies(selection_variables[i], z3.BoolVal(target_correlation[i] >= delta)))
@@ -249,7 +249,7 @@ def mrmr_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
     redundancy = optimizer.Sum(redundancy) / (k * k)
     objective = relevance - redundancy
     optimizer.Maximize(objective)
-    optimizer.Add(optimizer.Sum(selection_variables) <= k)
+    optimizer.Add(optimizer.Sum(selection_variables) == k)
     return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
 
 
@@ -266,7 +266,7 @@ def mrmr_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
     redundancy = redundancy / (k * k)
     objective = relevance - redundancy
     objective = optimizer.maximize(objective)
-    optimizer.add(z3.Or(selection_variables))  # one feature needs to be selected, else div by zero
+    optimizer.add(z3.Sum(*[z3.If(var, 1, 0) for var in selection_variables]) == k)
     return optimize_smt(optimizer=optimizer, objective=objective,
                         selection_variables=selection_variables)
 
