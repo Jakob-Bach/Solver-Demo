@@ -117,6 +117,49 @@ def cfs_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
     return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
 
 
+# More efficient linearization based on Nguyen et al. (2010): "Towards a Generic Feature-Selection
+# Measure for Intrusion Detection" (number of auxiliary variables linear instead of quadratic in
+# total number of features)
+def cfs_optimizer_mip2(k: int) -> Tuple[float, List[bool]]:
+    optimizer = pywraplp.Solver_CreateSolver('CBC')
+    x = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
+    y = optimizer.NumVar(name='y', lb=0, ub=1)  # auxiliary variable for denominator
+    relevance_terms = []
+    redundancy_terms = []
+    M = X.shape[1] ** 2 + 1  # some large value we use to deactivate constraints conditionally
+    t_vars = []  # auxiliary variables for linearizing x_i * y
+    for i in range(len(x)):
+        # Linearization: t_i = x_i * y (follows Equation (11) in Nguyen et al. (2010))
+        t_i = optimizer.NumVar(name='t_' + str(i), lb=0, ub=M)
+        optimizer.Add(M * (x[i] - 1) + y <= t_i)
+        optimizer.Add(t_i <= M * (1 - x[i]) + y)
+        optimizer.Add(t_i <= M * x[i])
+        t_vars.append(t_i)
+    for i in range(len(x)):
+        # Linearization: z_i = x_i * (A_i(x) * y) (does not exactly follow Equation (14) in Nguyen
+        # et al. (2010), since max objective instead of min objective)
+        z_i = optimizer.NumVar(name='z_' + str(i), lb=0, ub=M)
+        yA_i = optimizer.Sum([target_correlation[i] * target_correlation[j] * t_vars[j]
+                             for j in range(len(x))])  # A_i(x) * y
+        optimizer.Add(z_i <= yA_i)
+        optimizer.Add(z_i <= M * x[i])
+        relevance_terms.append(z_i)
+        v_i = optimizer.NumVar(name='v_' + str(i), lb=0, ub=M)
+        # Linearization: v_i = x_i * (B_i(x) * y) (follows Equation (15) in Nguyen et al. (2010))
+        yB_i = optimizer.Sum([feature_correlation[i, j] * t_vars[j]
+                              for j in range(len(x)) if i != j])  # B_i(x) * y
+        optimizer.Add(M * (x[i] - 1) + yB_i <= v_i)
+        optimizer.Add(v_i <= M * (1 - x[i]) + yB_i)
+        optimizer.Add(v_i <= M * x[i])
+        redundancy_terms.append(v_i)
+    redundancy_terms.append(k * y)
+    objective = optimizer.Sum(relevance_terms)
+    objective = optimizer.Maximize(objective)
+    optimizer.Add(optimizer.Sum(redundancy_terms) == 1)
+    optimizer.Add(optimizer.Sum(x) <= k)
+    return optimize_mip(optimizer=optimizer, selection_variables=x)
+
+
 # This version of CFS is probably buggy, as it's non-deterministic (objective value varies wildly).
 def cfs_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
@@ -230,7 +273,7 @@ def mrmr_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
 
 # Functions used in the benchmark:
 FS_FUNCTIONS = [univariate_optimizer_mip, univariate_optimizer_smt,
-                cfs_optimizer_mip, cfs_optimizer_smt,
+                cfs_optimizer_mip, cfs_optimizer_mip2, cfs_optimizer_smt,
                 fcbf_optimizer_mip, fcbf_optimizer_smt,
                 mrmr_optimizer_mip, mrmr_optimizer_smt]
 
