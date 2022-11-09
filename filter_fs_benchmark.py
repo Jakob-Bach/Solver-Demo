@@ -253,6 +253,31 @@ def mrmr_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
     return optimize_mip(optimizer=optimizer, selection_variables=selection_variables)
 
 
+# More efficient linearization based on Nguyen et al. (2010): "Towards a Generic Feature-Selection
+# Measure for Intrusion Detection" (number of auxiliary variables linear instead of quadratic in
+# total number of features)
+def mrmr_optimizer_mip2(k: int) -> Tuple[float, List[bool]]:
+    optimizer = pywraplp.Solver_CreateSolver('CBC')
+    x = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
+    relevance = optimizer.Sum([var * val for (var, val) in zip(x, target_correlation)])
+    relevance = relevance / k
+    redundancy_terms = []
+    M = X.shape[1] ** 2 + 1  # some large value we use to deactivate constraints conditionally
+    for i in range(len(x)):
+        # Linearization: z_i = x_i * A_i(x) (follows Equation (14) in Nguyen et al. (2010) except
+        # there is no variable y; note that we have max instead of min objective, but since the
+        # redundancy term is subtracted (should be minimized), we can still use Equation (14))
+        z_i = optimizer.NumVar(name='z_' + str(i), lb=0, ub=M)
+        A_i = optimizer.Sum([feature_correlation[i, j] * x[j] for j in range(len(x))])
+        optimizer.Add(M * (x[i] - 1) + A_i <= z_i)
+        redundancy_terms.append(z_i)
+    redundancy = optimizer.Sum(redundancy_terms) / (k * k)
+    objective = relevance - redundancy
+    optimizer.Maximize(objective)
+    optimizer.Add(optimizer.Sum(x) == k)
+    return optimize_mip(optimizer=optimizer, selection_variables=x)
+
+
 def mrmr_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
     optimizer = z3.Optimize()
     selection_variables = z3.Bools(' '.join(['x_' + str(i) for i in range(X.shape[1])]))
@@ -275,7 +300,7 @@ def mrmr_optimizer_smt(k: int) -> Tuple[float, List[bool]]:
 FS_FUNCTIONS = [univariate_optimizer_mip, univariate_optimizer_smt,
                 cfs_optimizer_mip, cfs_optimizer_mip2, cfs_optimizer_smt,
                 fcbf_optimizer_mip, fcbf_optimizer_smt,
-                mrmr_optimizer_mip, mrmr_optimizer_smt]
+                mrmr_optimizer_mip, mrmr_optimizer_mip2, mrmr_optimizer_smt]
 
 
 # Run one feature-selection function once and return results as dictionary.
