@@ -38,6 +38,7 @@ For all three languages (C++, Java, Python), we also implement own solution coun
 
 ### Python Code
 
+The code resides in directory `python_solvers/`.
 We use `Python 3.8.3` (in particular, out of `Anaconda3 2019.10`) with [`conda 4.8.3`](https://docs.conda.io/en/latest/) dependency management.
 For reproducibility purposes, we exported our environment with `conda env export --no-builds > environment.yml`.
 You should be able to import the environment via `conda env create -f environment.yml`
@@ -46,6 +47,7 @@ After activating, call `ipython kernel install --user --name=solver-demo` to mak
 
 ### Java Code
 
+The code resides in directory `java_solvers/`.
 We use Java 8.
 For the Java code, you can import `java_solvers` as a Maven project into Eclipse.
 
@@ -70,6 +72,8 @@ To enable access, add the `bin/` directory of your Z3 download to the environmen
 For `ORToolsDemo`, the process is similar, download is [here](https://developers.google.com/optimization/install/download) , but you need to build two Maven artifacts.
 
 ### C++ Code
+
+The code resides in directory `c_solvers/`.
 
 `arithmetic_enumeration_demo` and both `flexible_enumeration_demo`s don't have any external dependencies.
 
