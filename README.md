@@ -7,26 +7,27 @@ Use cases include:
 
 |Use case|File(s)/folder(s)|Related project repo|Related paper|
 |---|---|---|---|
-|Counting (by enumerating) all solutions for a simple AND or OR formula|`c_solvers/*`, `java_solvers/*`, `Solver_Enumeration_Benchmark.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
-|MIP/SMT models of a simple knapsack problem|`java_solvers/ChocoOptimizationDemo.java`, `Knapsack_Demo.ipynb`, `Z3_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
-|MIP model (and greedy algorithm) of decision tree for selecting algorithm configurations|`configuration_selection_tree_demo.py`|||
-|MIP/SMT models of different filter feature-selection techniques|`filter_fs_benchmark.py`|[repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection)||
-|MIP/SMT models of multi-task feature selection inspired by solver portfolios|`fs_portfolio_demo.py`|||
-|MIP models of different set-cover problems|`set_cover_demo.py`|||
-|SMT model of a simultaneous multi-round auction |`SMR_Auction_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Analyzing-Auction-Verification)|[paper](https://doi.org/10.1109/ACCESS.2022.3154445)|
-|MIP/SMT models of the K-Portfolio Problem|`small_portfolios_demo.py`|[repo](https://github.com/Jakob-Bach/Small-Portfolios)|[paper](https://doi.org/10.4230/LIPIcs.SAT.2022.2)|
-|MIP/SMT models of the (Simultaneous) Alternative-Feature-Selection Problem|`simultaneous_afs_benchmark.py`|[repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection)||
+|Counting (by enumerating) all solutions for a simple AND or OR formula|`c_solvers/*`, `java_solvers/*`, `python_solvers/Solver_Enumeration_Benchmark.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
+|MIP/SMT models of a simple knapsack problem|`java_solvers/ChocoOptimizationDemo.java`, `python_solvers/Knapsack_Demo.ipynb`, `python_solvers/Z3_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
+|MIP model (and greedy algorithm) of decision tree for selecting algorithm configurations|`python_solvers/configuration_selection_tree_demo.py`|||
+|MIP/SMT models of different filter feature-selection techniques|`python_solvers/filter_fs_benchmark.py`|[repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection)|[paper](https://doi.org/10.48550/arXiv.2307.11607)|
+|MIP/SMT models of multi-task feature selection inspired by solver portfolios|`python_solvers/fs_portfolio_demo.py`|||
+|MIP models of different set-cover problems|`python_solvers/set_cover_demo.py`|||
+|MIP/SMT models of the (simultaneous) alternative-feature-selection problem|`python_solvers/simultaneous_afs_benchmark.py`|[repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection)|[paper](https://doi.org/10.48550/arXiv.2307.11607)|
+|MIP/SMT models of the k-portfolio problem|`python_solvers/small_portfolios_demo.py`|[repo](https://github.com/Jakob-Bach/Small-Portfolios)|[paper](https://doi.org/10.4230/LIPIcs.SAT.2022.2)|
+|SMT model of a simultaneous multi-round auction |`python_solvers/SMR_Auction_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Analyzing-Auction-Verification)|[paper](https://doi.org/10.1109/ACCESS.2022.3154445)|
+|MIP/SMT models of the subgroup-discovery problem|`python_solvers/subgroup_discovery_demo.py`|||
 
 ## Testing Solvers for Constrained Feature Selection
 
 |Solver|Languages|Hints|
 |---|---|---|
 |[Choco](https://choco-solver.org/) |Java|also an optimizer|
-|[Gecode](https://www.gecode.org/) | C++|also an optimizer|
-|[GEKKO](https://gekko.readthedocs.io/en/latest/)|Python|mainly an optimizer|
+|[Gecode](https://www.gecode.org/) |C++|also an optimizer|
+|[GEKKO](https://gekko.readthedocs.io/en/latest/) |Python|mainly an optimizer|
 |[Google OR Tools](https://developers.google.com/optimization/introduction/overview) |Java, Python|also an optimizer|
 |[PicoSAT](https://pypi.org/project/pycosat/) |Python||
-|[pySMT](https://github.com/pysmt/pysmt)|Python|wraps various solvers (e.g., `MathSAT`, `Z3`)|
+|[pySMT](https://github.com/pysmt/pysmt) |Python|wraps various solvers (e.g., `MathSAT`, `Z3`)|
 |[python-constraint](https://labix.org/python-constraint) |Python||
 |[Z3](https://github.com/Z3Prover/z3/wiki) |C++, Java, Python|also an optimizer|
 

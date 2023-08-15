@@ -1,0 +1,205 @@
+"""Subgroup Discovery as White-Box Problem
+
+We model the subgroup-discovery problem, which may be solved heuristically with algorithms like
+PRIM, as an exact MIP/SMT optimization problem.
+"""
+
+import time
+
+import matplotlib.pyplot as plt
+import mip
+import pandas as pd
+import seaborn as sns
+import sklearn.datasets
+import z3
+
+
+# -----Prepare demo data-----
+# Dataset 1: "iris": nice for checking correctness and for visualization
+# other included classification datasets: "breast_cancer", "digits", "wine"
+X, y = sklearn.datasets.load_iris(as_frame=True, return_X_y=True)
+data = pd.concat((X, y.astype(str)), axis='columns')  # for sampling and plotting; else (X, y) used
+# data = data.sample(n=50, random_state=25)  # to analyze scalability
+# X, y = data.drop(columns='target'), data['target']
+
+# Dataset 2: synthetically generated, which allows to vary problem size more flexibly:
+# X, y = sklearn.datasets.make_classification(n_samples=100, n_features=10, n_informative=3,
+#                                             n_classes=2, random_state=25)
+# X, y = pd.DataFrame(X), pd.Series(y)
+# data = pd.concat((X, y.astype(str)), axis='columns')
+
+positive_class = y.unique()[0]
+num_features = X.shape[1]
+num_samples = X.shape[0]
+num_positive_samples = int((y == positive_class).sum())
+feature_minima = X.min().to_list()
+feature_maxima = X.max().to_list()
+
+
+# -----SMT model-----
+lower_bounds = [z3.Real(f'lb_{j}') for j in range(num_features)]
+upper_bounds = [z3.Real(f'ub_{j}') for j in range(num_features)]
+is_sample_in_box = [z3.Bool(f'y_{i}') for i in range(num_samples)]
+num_positive_samples_in_box = z3.Real('n_box_pos')  # "Real" to allow float operations in objective
+num_samples_in_box = z3.Real('n_box')
+
+optimizer = z3.Optimize()
+# Pick one of three objectives:
+# (1) Recall, fastest objective, should be combined with an upper bound on box size (else trivial)
+objective = optimizer.maximize(num_positive_samples_in_box / num_positive_samples)
+# # (2) Weighted Relative Accuracy (WRacc), does not need constraint on box size
+# objective = optimizer.maximize(num_samples_in_box / num_samples *
+#                                (num_positive_samples_in_box / num_samples_in_box -
+#                                 num_positive_samples / num_samples))
+# # (3) Precision, should be combined with a lower bound on box size (else trivial)
+# objective = optimizer.maximize(num_positive_samples_in_box / num_samples_in_box)
+
+# Constraint type 1: Identify for each sample if it is in the subgroup's box or not
+for i in range(num_samples):
+    optimizer.add(z3.And([
+        z3.And(float(X.iloc[i, j]) >= lower_bounds[j], float(X.iloc[i, j]) <= upper_bounds[j])
+        for j in range(num_features)]) == is_sample_in_box[i])
+
+# # Alternative formulation for in-box constraint (similar to MIP), using more variables and
+# # constraints but with similar performance (split large expression in smaller sub-expressions)
+# is_value_in_box = [[z3.Bool(f'x_{i}_{j}') for j in range(num_features)] for i in range(num_samples)]
+# for i in range(num_samples):
+#     for j in range(num_features):
+#         optimizer.add(z3.And(float(X.iloc[i, j]) >= lower_bounds[j],
+#                               float(X.iloc[i, j]) <= upper_bounds[j]) == is_value_in_box[i][j])
+#     optimizer.add(z3.And(is_value_in_box[i]) == is_sample_in_box[i])
+
+# Contraint type 2: Relationship between lower and upper bounds
+for j in range(num_features):
+    optimizer.add(lower_bounds[j] <= upper_bounds[j])
+
+# Constraint type 3: Count samples in box
+optimizer.add(num_samples_in_box == z3.Sum([z3.If(box_var, 1, 0) for box_var in is_sample_in_box]))
+
+# Constraint type 4: Count positive samples in box
+optimizer.add(num_positive_samples_in_box == z3.Sum([z3.If(box_var, 1, 0) for box_var, target
+                                                     in zip(is_sample_in_box, y) if target == positive_class]))
+
+# Constraint type 5 (objective-dependent): Upper-bound number of samples in box (else optimization
+# of recall trivial; unnecessary for for WRacc; lower bound necessary for precision)
+optimizer.add(num_samples_in_box <= num_positive_samples)
+
+# # Constraint type 6 (optional): Limit number of features used, e.g., to 50% of total number
+# optimizer.add(z3.Sum([z3.If(z3.Or(lower_bounds[j] > feature_minima[j],
+#                                   upper_bounds[j] < feature_maxima[j]), 1, 0)
+#                       for j in range(num_features)]) <= num_features * 0.5)
+
+start_time = time.perf_counter()
+result = optimizer.check()
+end_time = time.perf_counter()
+print('[SMT] Result:', result)
+print('[SMT] Time:', round(end_time - start_time, 3), 's')
+
+print(f'[SMT] Overall: {num_samples} samples, {num_positive_samples} positive')
+print(f'[SMT] Box: {optimizer.model()[num_samples_in_box]} samples,',
+      f'{optimizer.model()[num_positive_samples_in_box]} positive')
+if isinstance(objective.value(), z3.IntNumRef):
+    print(f'[SMT] Objective: {objective.value()}')
+else:  # RatNumRef
+    print('[SMT] Objective:', round(objective.value().numerator_as_long() /
+                                    objective.value().denominator_as_long(), 2))
+lower_bound_values = [optimizer.model()[x].numerator_as_long() /
+                      optimizer.model()[x].denominator_as_long() for x in lower_bounds]
+upper_bound_values = [optimizer.model()[x].numerator_as_long() /
+                      optimizer.model()[x].denominator_as_long() for x in upper_bounds]
+
+# # Create a (complete) sequence of 2D scatter plots showing the detected box:
+# for j1 in range(num_features - 1):
+#     for j2 in range(j1 + 1, num_features):
+#         plt.figure()
+#         sns.scatterplot(x=data.columns[j1], y=data.columns[j2], hue='target', data=data)
+#         plt.vlines(x=(lower_bound_values[j1], upper_bound_values[j1]),
+#                     ymin=lower_bound_values[j2], ymax=upper_bound_values[j2], colors='red')
+#         plt.hlines(y=(lower_bound_values[j2], upper_bound_values[j2]),
+#                     xmin=lower_bound_values[j1], xmax=upper_bound_values[j1], colors='red')
+#         plt.show()
+
+
+# -----MIP model-----
+model = mip.Model()
+model.verbose = 0
+
+# First, same variables as in SMT formulation:
+lower_bounds = [model.add_var(name=f'lb_{j}', var_type=mip.CONTINUOUS, lb=feature_minima[j],
+                              ub=feature_maxima[j]) for j in range(num_features)]
+upper_bounds = [model.add_var(name=f'ub_{j}', var_type=mip.CONTINUOUS, lb=feature_minima[j],
+                              ub=feature_maxima[j]) for j in range(num_features)]
+is_sample_in_box = [model.add_var(name=f'y_{i}', var_type=mip.BINARY) for i in range(num_samples)]
+num_samples_in_box = model.add_var(name='n_box', var_type=mip.INTEGER, lb=0, ub=num_samples)
+num_positive_samples_in_box = model.add_var(name='n_box_pos', var_type=mip.INTEGER, lb=0,
+                                            ub=num_positive_samples)
+# Second, additional auxiliary variables necessary to linearize in-box constraints:
+is_value_in_box_lb = [[model.add_var(name=f'box_lb_{i}_{j}', var_type=mip.BINARY)
+                       for j in range(num_features)] for i in range(num_samples)]
+is_value_in_box_ub = [[model.add_var(name=f'box_ub_{i}_{j}', var_type=mip.BINARY)
+                       for j in range(num_features)] for i in range(num_samples)]
+
+# Recall as objective (precision and WRacc are non-linear):
+model.objective = mip.maximize(num_positive_samples_in_box / num_positive_samples)
+
+# Constraint type 1: Identify for each sample if it is in the subgroup's box or not
+for i in range(num_samples):
+    for j in range(num_features):
+        # Modeling constraint satisfaction binarily: https://docs.mosek.com/modeling-cookbook/mio.html#constraint-satisfaction
+        # Idea: variables (here: "is_value_in_box_lb[i][j]") express whether constraint satisfied
+        M = feature_maxima[j] - feature_minima[j]  # large positive value
+        m = feature_minima[j] - feature_maxima[j]  # large (in absolute terms) negative value
+        model.add_constr(float(X.iloc[i, j]) + m * is_value_in_box_lb[i][j] + 1e-20 <= lower_bounds[j])  # add a small value on LHS to get < rather than <=
+        model.add_constr(lower_bounds[j] <= float(X.iloc[i, j]) + M * (1 - is_value_in_box_lb[i][j]))
+        model.add_constr(upper_bounds[j] + m * is_value_in_box_ub[i][j] + 1e-20 <= float(X.iloc[i, j]))
+        model.add_constr(float(X.iloc[i, j]) <= upper_bounds[j] + M * (1 - is_value_in_box_ub[i][j]))
+        # Modeling AND operator: https://docs.mosek.com/modeling-cookbook/mio.html#boolean-operators
+        model.add_constr(is_sample_in_box[i] <= is_value_in_box_lb[i][j])
+        model.add_constr(is_sample_in_box[i] <= is_value_in_box_ub[i][j])
+        # third necessary constraint for AND moved outside loop and summed up over features, since
+        # only simultaneous satisfaction of all LB and UB constraints implies that sample in box
+    model.add_constr(mip.xsum(is_value_in_box_lb[i]) + mip.xsum(is_value_in_box_ub[i]) <=
+                      is_sample_in_box[i] + 2 * num_features - 1)
+
+# Contraint type 2: Relationship between lower and upper bounds
+for j in range(num_features):
+    model.add_constr(lower_bounds[j] <= upper_bounds[j])
+
+# Constraint type 3: Count samples in box
+model.add_constr(num_samples_in_box == mip.xsum(is_sample_in_box))
+
+# Constraint type 4: Count positive samples in box
+model.add_constr(num_positive_samples_in_box == mip.xsum(
+    box_var for box_var, target in zip(is_sample_in_box, y) if target == positive_class))
+
+# Constraint type 5 (objective-dependent): Upper-bound number of samples in box (here: for recall)
+model.add_constr(num_samples_in_box <= num_positive_samples)
+
+# # Constraint type 6 (optional): Limit number of features used, e.g., to 50% of total number;
+# # seems to speed up the MIP optimization
+# is_feature_used = [model.add_var(name='f_{j}', var_type=mip.BINARY) for j in range(num_features)]
+# for j in range(num_features):
+#     # model.add_constr(mip.xsum(1 - is_value_in_box_lb[i][j] for i in range(num_samples)) +
+#     #                  mip.xsum(1 - is_value_in_box_ub[i][j] for i in range(num_samples)) <=
+#     #                  2 * num_samples * is_feature_used[j])  # large implication slower than many small ones
+#     for i in range(num_samples):
+#         # If some feature values are not in the box, then this feature has a bound, i.e., is used
+#         model.add_constr(1 - is_value_in_box_lb[i][j] <= is_feature_used[j])
+#         model.add_constr(1 - is_value_in_box_ub[i][j] <= is_feature_used[j])
+#     model.add_constr(is_feature_used[j] <=
+#                       mip.xsum(1 - is_value_in_box_lb[i][j] for i in range(num_samples)) +
+#                       mip.xsum(1 - is_value_in_box_ub[i][j] for i in range(num_samples)))
+# model.add_constr(mip.xsum(is_feature_used) <= 0.5 * num_features)
+
+start_time = time.perf_counter()
+result = model.optimize()
+end_time = time.perf_counter()
+print('[MIP] Result:', result)
+print('[MIP] Time:', round(end_time - start_time, 3), 's')
+
+print(f'[MIP] Overall: {num_samples} samples, {num_positive_samples} positive')
+print(f'[MIP] Box: {int(num_samples_in_box.x)} samples, {int(num_positive_samples_in_box.x)} positive')
+print('[MIP] Objective:', round(model.objective_value, 2))
+lower_bound_values = [x.x for x in lower_bounds]
+upper_bound_values = [x.x for x in upper_bounds]
+# For plotting the boxes, see above
