@@ -48,9 +48,8 @@ optimizer = z3.Optimize()
 # (1) Recall, fastest objective, should be combined with an upper bound on box size (else trivial)
 objective = optimizer.maximize(num_positive_samples_in_box / num_positive_samples)
 # # (2) Weighted Relative Accuracy (WRacc), does not need constraint on box size
-# objective = optimizer.maximize(num_samples_in_box / num_samples *
-#                                (num_positive_samples_in_box / num_samples_in_box -
-#                                 num_positive_samples / num_samples))
+# objective = optimizer.maximize(num_positive_samples_in_box / num_samples -
+#                                num_samples_in_box * num_positive_samples / (num_samples ** 2))
 # # (3) Precision, should be combined with a lower bound on box size (else trivial)
 # objective = optimizer.maximize(num_positive_samples_in_box / num_samples_in_box)
 
@@ -139,8 +138,30 @@ is_value_in_box_lb = [[model.add_var(name=f'box_lb_{i}_{j}', var_type=mip.BINARY
 is_value_in_box_ub = [[model.add_var(name=f'box_ub_{i}_{j}', var_type=mip.BINARY)
                        for j in range(num_features)] for i in range(num_samples)]
 
-# Recall as objective (precision and WRacc are non-linear):
+# Pick one of two objectives:
+# (1) Recall, linear by default, should be combined with an upper bound on box size (else trivial)
 model.objective = mip.maximize(num_positive_samples_in_box / num_positive_samples)
+# # (2) Weighted Relative Accuracy (WRacc), linear by default, does not need constraint on box size
+# model.objective = mip.maximize(num_positive_samples_in_box / num_samples -
+#                                num_samples_in_box * num_positive_samples / (num_samples ** 2))
+# # (3) Precision, linearized, should be combined with a lower bound on box size (else trivial)
+# # For linearization, see Chang (2001): "On the polynomial mixed 0-1 fractional programming problems"
+# inv_denominator = model.add_var(name='inv_d', var_type=mip.CONTINUOUS, lb=0, ub=1)
+# product_vars = [model.add_var(name=f'z_{i}', var_type=mip.CONTINUOUS, lb=0, ub=1)
+#                 for i in range(num_samples)]
+# # Objective: "\sum_{i of positive samples} y_i * inv_d", i.e., "ordinary" numerator (number of
+# # positive samples in box) times inverse of denominator, with "y_i * inv_d" linearized to "z_i"
+# model.objective = mip.maximize(mip.xsum(z_i for z_i, target in zip(product_vars, y)
+#                                         if target == positive_class))
+# # Auxiliary constraint type 1: "\sum_i y_i * inv_d = 1", i.e., "ordinary" denominator (number of
+# # samples in box) times its inverse is 1, with "y_i * inv_d" linearized to "z_i"
+# model.add_constr(mip.xsum(product_vars) == 1)
+# # Auxiliary constraint type 2: Linearize products "y_i * inv_d" to "z_i"
+# M = 1  # "large" positive value (here, the product terms can't get very large)
+# for i in range(num_samples):
+#     model.add_constr(product_vars[i] <= M * is_sample_in_box[i])
+#     model.add_constr(product_vars[i] <= inv_denominator)
+#     model.add_constr(product_vars[i] >= inv_denominator + (is_sample_in_box[i] - 1) * M)
 
 # Constraint type 1: Identify for each sample if it is in the subgroup's box or not
 for i in range(num_samples):
