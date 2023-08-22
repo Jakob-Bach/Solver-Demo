@@ -8,6 +8,7 @@ import time
 
 import matplotlib.pyplot as plt
 import mip
+from ortools.linear_solver import pywraplp
 import pandas as pd
 import seaborn as sns
 import sklearn.datasets
@@ -34,6 +35,11 @@ num_samples = X.shape[0]
 num_positive_samples = int((y == positive_class).sum())
 feature_minima = X.min().to_list()
 feature_maxima = X.max().to_list()
+feature_diff_minima = X.apply(lambda col: pd.Series(col.sort_values().unique()).diff().min())
+# Define minimum difference between LHS and RHS of strict inequalities to count them as satisfied
+# (actual strict inequalities typically not supported in linear optimization, so we transform
+# "a < b" to "a <= b - eps"; high values deteriorate objective, low values may violate strictness):
+inequality_tolerances = [0] * num_features  # one alternative: feature_diff_minima.to_list()
 
 
 # -----SMT model-----
@@ -119,9 +125,13 @@ upper_bound_values = [optimizer.model()[x].numerator_as_long() /
 #         plt.show()
 
 
-# -----MIP model-----
+# -----MIP model (Python-MIP)-----
 model = mip.Model()
 model.verbose = 0
+model.infeas_tol = 0  # disable some tolerances that may cause imprecise results
+model.integer_tol = 0
+model.max_mip_gap = 0
+model.opt_tol = 0
 
 # First, same variables as in SMT formulation:
 lower_bounds = [model.add_var(name=f'lb_{j}', var_type=mip.CONTINUOUS, lb=feature_minima[j],
@@ -138,7 +148,7 @@ is_value_in_box_lb = [[model.add_var(name=f'box_lb_{i}_{j}', var_type=mip.BINARY
 is_value_in_box_ub = [[model.add_var(name=f'box_ub_{i}_{j}', var_type=mip.BINARY)
                        for j in range(num_features)] for i in range(num_samples)]
 
-# Pick one of two objectives:
+# Pick one of three objectives:
 # (1) Recall, linear by default, should be combined with an upper bound on box size (else trivial)
 model.objective = mip.maximize(num_positive_samples_in_box / num_positive_samples)
 # # (2) Weighted Relative Accuracy (WRacc), linear by default, does not need constraint on box size
@@ -170,9 +180,11 @@ for i in range(num_samples):
         # Idea: variables (here: "is_value_in_box_lb[i][j]") express whether constraint satisfied
         M = feature_maxima[j] - feature_minima[j]  # large positive value
         m = feature_minima[j] - feature_maxima[j]  # large (in absolute terms) negative value
-        model.add_constr(float(X.iloc[i, j]) + m * is_value_in_box_lb[i][j] + 1e-20 <= lower_bounds[j])  # add a small value on LHS to get < rather than <=
-        model.add_constr(lower_bounds[j] <= float(X.iloc[i, j]) + M * (1 - is_value_in_box_lb[i][j]))
-        model.add_constr(upper_bounds[j] + m * is_value_in_box_ub[i][j] + 1e-20 <= float(X.iloc[i, j]))
+        model.add_constr(float(X.iloc[i, j]) + m * is_value_in_box_lb[i][j]
+                         <= lower_bounds[j] - inequality_tolerances[j])  # add a small value on LHS to get < rather than <=
+        model.add_constr(lower_bounds[j] <=float(X.iloc[i, j]) + M * (1 - is_value_in_box_lb[i][j]))
+        model.add_constr(upper_bounds[j] + m * is_value_in_box_ub[i][j]
+                         <= float(X.iloc[i, j]) - inequality_tolerances[j])
         model.add_constr(float(X.iloc[i, j]) <= upper_bounds[j] + M * (1 - is_value_in_box_ub[i][j]))
         # Modeling AND operator: https://docs.mosek.com/modeling-cookbook/mio.html#boolean-operators
         model.add_constr(is_sample_in_box[i] <= is_value_in_box_lb[i][j])
@@ -215,12 +227,87 @@ model.add_constr(num_samples_in_box <= num_positive_samples)
 start_time = time.perf_counter()
 result = model.optimize()
 end_time = time.perf_counter()
-print('[MIP] Result:', result)
-print('[MIP] Time:', round(end_time - start_time, 3), 's')
+print('[Python-MIP] Result:', result)
+print('[Python-MIP] Time:', round(end_time - start_time, 3), 's')
 
-print(f'[MIP] Overall: {num_samples} samples, {num_positive_samples} positive')
-print(f'[MIP] Box: {int(num_samples_in_box.x)} samples, {int(num_positive_samples_in_box.x)} positive')
-print('[MIP] Objective:', round(model.objective_value, 2))
+print(f'[Python-MIP] Overall: {num_samples} samples, {num_positive_samples} positive')
+print(f'[Python-MIP] Box: {int(num_samples_in_box.x)} samples, {int(num_positive_samples_in_box.x)} positive')
+print('[Python-MIP] Objective:', round(model.objective_value, 2))
 lower_bound_values = [x.x for x in lower_bounds]
 upper_bound_values = [x.x for x in upper_bounds]
+# For plotting the boxes, see above
+
+
+# -----MIP model (OR-Tools)-----
+model = pywraplp.Solver.CreateSolver('CBC') # may also try 'SCIP' or 'CP_SAT'
+model.SetNumThreads(1)
+
+# First, same variables as in SMT formulation:
+lower_bounds = [model.NumVar(name=f'lb_{j}', lb=feature_minima[j], ub=feature_maxima[j])
+                for j in range(num_features)]
+upper_bounds = [model.NumVar(name=f'ub_{j}', lb=feature_minima[j], ub=feature_maxima[j])
+                for j in range(num_features)]
+is_sample_in_box = [model.BoolVar(name=f'y_{i}') for i in range(num_samples)]
+num_samples_in_box = model.IntVar(name='n_box', lb=0, ub=num_samples)
+num_positive_samples_in_box = model.IntVar(name='n_box_pos', lb=0, ub=num_positive_samples)
+# Second, additional auxiliary variables necessary to linearize in-box constraints:
+is_value_in_box_lb = [[model.BoolVar(name=f'box_lb_{i}_{j}') for j in range(num_features)]
+                      for i in range(num_samples)]
+is_value_in_box_ub = [[model.BoolVar(name=f'box_ub_{i}_{j}') for j in range(num_features)]
+                      for i in range(num_samples)]
+
+# Pick one of two objectives:
+# (1) Recall, linear by default, should be combined with an upper bound on box size (else trivial)
+model.Maximize(num_positive_samples_in_box / num_positive_samples)
+# # (2) Weighted Relative Accuracy (WRacc), linear by default, does not need constraint on box size
+# model.Maximize(num_positive_samples_in_box / num_samples -
+#                num_samples_in_box * num_positive_samples / (num_samples ** 2))
+
+# Constraint type 1: Identify for each sample if it is in the subgroup's box or not
+for i in range(num_samples):
+    for j in range(num_features):
+        # Modeling constraint satisfaction binarily: https://docs.mosek.com/modeling-cookbook/mio.html#constraint-satisfaction
+        # Idea: variables (here: "is_value_in_box_lb[i][j]") express whether constraint satisfied
+        M = feature_maxima[j] - feature_minima[j]  # large positive value
+        m = feature_minima[j] - feature_maxima[j]  # large (in absolute terms) negative value
+        model.Add(float(X.iloc[i, j]) + m * is_value_in_box_lb[i][j]
+                  <= lower_bounds[j] - inequality_tolerances[j])  # add a small value on LHS to get < rather than <=
+        model.Add(lower_bounds[j] <= float(X.iloc[i, j]) + M * (1 - is_value_in_box_lb[i][j]))
+        model.Add(upper_bounds[j] + m * is_value_in_box_ub[i][j]
+                  <= float(X.iloc[i, j]) - inequality_tolerances[j])
+        model.Add(float(X.iloc[i, j]) <= upper_bounds[j] + M * (1 - is_value_in_box_ub[i][j]))
+        # Modeling AND operator: https://docs.mosek.com/modeling-cookbook/mio.html#boolean-operators
+        model.Add(is_sample_in_box[i] <= is_value_in_box_lb[i][j])
+        model.Add(is_sample_in_box[i] <= is_value_in_box_ub[i][j])
+        # third necessary constraint for AND moved outside loop and summed up over features, since
+        # only simultaneous satisfaction of all LB and UB constraints implies that sample in box
+    model.Add(model.Sum(is_value_in_box_lb[i]) + model.Sum(is_value_in_box_ub[i])
+              <= is_sample_in_box[i] + 2 * num_features - 1)
+
+# Contraint type 2: Relationship between lower and upper bounds
+for j in range(num_features):
+    model.Add(lower_bounds[j] <= upper_bounds[j])
+
+# Constraint type 3: Count samples in box
+model.Add(num_samples_in_box == model.Sum(is_sample_in_box))
+
+# Constraint type 4: Count positive samples in box
+model.Add(num_positive_samples_in_box == model.Sum(
+    [box_var for box_var, target in zip(is_sample_in_box, y) if target == positive_class]))
+
+# Constraint type 5 (objective-dependent): Upper-bound number of samples in box (here: for recall)
+model.Add(num_samples_in_box <= num_positive_samples)
+
+start_time = time.perf_counter()
+result = model.Solve()
+end_time = time.perf_counter()
+print('[OR-Tools-MIP] Result:', result)
+print('[OR-Tools-MIP] Time:', round(end_time - start_time, 3), 's')
+
+print(f'[OR-Tools-MIP] Overall: {num_samples} samples, {num_positive_samples} positive')
+print(f'[OR-Tools-MIP] Box: {int(num_samples_in_box.solution_value())} samples,',
+      f'{int(num_positive_samples_in_box.solution_value())} positive')
+print('[OR-Tools-MIP] Objective:', round(model.Objective().Value(), 2))
+lower_bound_values = [x.solution_value() for x in lower_bounds]
+upper_bound_values = [x.solution_value() for x in upper_bounds]
 # For plotting the boxes, see above
