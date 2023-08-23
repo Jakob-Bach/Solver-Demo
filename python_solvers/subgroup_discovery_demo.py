@@ -23,10 +23,10 @@ data = pd.concat((X, y.astype(str)), axis='columns')  # for sampling and plottin
 # data = data.sample(n=50, random_state=25)  # to analyze scalability
 # X, y = data.drop(columns='target'), data['target']
 
-# Dataset 2: synthetically generated, which allows to vary problem size more flexibly:
+# # Dataset 2: synthetically generated, which allows to vary problem size more flexibly:
 # X, y = sklearn.datasets.make_classification(n_samples=100, n_features=10, n_informative=3,
 #                                             n_classes=2, random_state=25)
-# X, y = pd.DataFrame(X), pd.Series(y)
+# X, y = pd.DataFrame(X, columns=[f'F_{i}' for i in range(X.shape[1])]), pd.Series(y, name='target')
 # data = pd.concat((X, y.astype(str)), axis='columns')
 
 positive_class = y.unique()[0]
@@ -35,11 +35,12 @@ num_samples = X.shape[0]
 num_positive_samples = int((y == positive_class).sum())
 feature_minima = X.min().to_list()
 feature_maxima = X.max().to_list()
-feature_diff_minima = X.apply(lambda col: pd.Series(col.sort_values().unique()).diff().min())
-# Define minimum difference between LHS and RHS of strict inequalities to count them as satisfied
-# (actual strict inequalities typically not supported in linear optimization, so we transform
-# "a < b" to "a <= b - eps"; high values deteriorate objective, low values may violate strictness):
-inequality_tolerances = [0] * num_features  # one alternative: feature_diff_minima.to_list()
+feature_diff_minima = X.apply(lambda col: pd.Series(col.sort_values().unique()).diff().min()).fillna(0)
+# Define minimum difference between LHS and RHS of strict inequalities to count them as satisfied;
+# actual strict inequalities usually not supported in linear optimization, so we transform "a < b"
+# to "a <= b - eps"; high "eps" values deteriorate objective, low ones may violate strictness;
+# in case all feature values identical, i.e., min diff is NA, use 0 to enforce lb == value == ub:
+inequality_tolerances = feature_diff_minima.to_list()
 
 
 # -----SMT model-----
@@ -178,11 +179,11 @@ for i in range(num_samples):
     for j in range(num_features):
         # Modeling constraint satisfaction binarily: https://docs.mosek.com/modeling-cookbook/mio.html#constraint-satisfaction
         # Idea: variables (here: "is_value_in_box_lb[i][j]") express whether constraint satisfied
-        M = feature_maxima[j] - feature_minima[j]  # large positive value
-        m = feature_minima[j] - feature_maxima[j]  # large (in absolute terms) negative value
+        M = 2 * (feature_maxima[j] - feature_minima[j])  # large positive value
+        m = 2 * (feature_minima[j] - feature_maxima[j])  # large (in absolute terms) negative value
         model.add_constr(float(X.iloc[i, j]) + m * is_value_in_box_lb[i][j]
                          <= lower_bounds[j] - inequality_tolerances[j])  # add a small value on LHS to get < rather than <=
-        model.add_constr(lower_bounds[j] <=float(X.iloc[i, j]) + M * (1 - is_value_in_box_lb[i][j]))
+        model.add_constr(lower_bounds[j] <= float(X.iloc[i, j]) + M * (1 - is_value_in_box_lb[i][j]))
         model.add_constr(upper_bounds[j] + m * is_value_in_box_ub[i][j]
                          <= float(X.iloc[i, j]) - inequality_tolerances[j])
         model.add_constr(float(X.iloc[i, j]) <= upper_bounds[j] + M * (1 - is_value_in_box_ub[i][j]))
@@ -234,7 +235,13 @@ print(f'[Python-MIP] Overall: {num_samples} samples, {num_positive_samples} posi
 print(f'[Python-MIP] Box: {int(num_samples_in_box.x)} samples, {int(num_positive_samples_in_box.x)} positive')
 print('[Python-MIP] Objective:', round(model.objective_value, 2))
 lower_bound_values = [x.x for x in lower_bounds]
+# alternatively, use: X.iloc[[bool(var.x) for var in is_sample_in_box]].min()
+# in particular, (1) bounds stored in variables may slightly (numerically) deviate from values
+# used in optimization (e.g., sample in box according to "is_sample_in_box[i].x" may violate
+# "lower_bounds[i].x" by a value like 1e-16) and (2) bounds stored in variables may enlarge the box
+# more than necessary into "no man's land"/margin instead of tightly bounding samples in box
 upper_bound_values = [x.x for x in upper_bounds]
+# alternatively, use: X.iloc[[bool(var.x) for var in is_sample_in_box]].max()
 # For plotting the boxes, see above
 
 
@@ -268,8 +275,8 @@ for i in range(num_samples):
     for j in range(num_features):
         # Modeling constraint satisfaction binarily: https://docs.mosek.com/modeling-cookbook/mio.html#constraint-satisfaction
         # Idea: variables (here: "is_value_in_box_lb[i][j]") express whether constraint satisfied
-        M = feature_maxima[j] - feature_minima[j]  # large positive value
-        m = feature_minima[j] - feature_maxima[j]  # large (in absolute terms) negative value
+        M = 2 * (feature_maxima[j] - feature_minima[j])  # large positive value
+        m = 2 * (feature_minima[j] - feature_maxima[j])  # large (in absolute terms) negative value
         model.Add(float(X.iloc[i, j]) + m * is_value_in_box_lb[i][j]
                   <= lower_bounds[j] - inequality_tolerances[j])  # add a small value on LHS to get < rather than <=
         model.Add(lower_bounds[j] <= float(X.iloc[i, j]) + M * (1 - is_value_in_box_lb[i][j]))
