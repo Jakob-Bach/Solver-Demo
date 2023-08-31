@@ -318,3 +318,81 @@ print('[OR-Tools-MIP] Objective:', round(model.Objective().Value(), 2))
 lower_bound_values = [x.solution_value() for x in lower_bounds]
 upper_bound_values = [x.solution_value() for x in upper_bounds]
 # For plotting the boxes, see above
+
+
+# -----MaxSAT model (binary variables), but using an SMT solver-----
+unique_feature_values = [X[col].sort_values().unique().tolist() for col in X.columns]
+
+# Variables:
+lower_bounds = [[z3.Bool(f'lb_{j}_{k}') for k in range(len(feature_values))]
+                for j, feature_values in enumerate(unique_feature_values)]  # is k-th value of j-th feature the box's LB or not?
+upper_bounds = [[z3.Bool(f'ub_{j}_{k}') for k in range(len(feature_values))]
+                for j, feature_values in enumerate(unique_feature_values)]
+is_sample_in_box = [z3.Bool(f'y_{i}') for i in range(num_samples)]
+num_positive_samples_in_box = z3.Real('n_box_pos')  # "Real" to allow float operations in objective
+num_samples_in_box = z3.Real('n_box')  # last two variables can be inlined to only have binary ones
+
+optimizer = z3.Optimize()
+# Pick one of three objectives:
+# (1) Recall, fastest objective, should be combined with an upper bound on box size (else trivial)
+objective = optimizer.maximize(num_positive_samples_in_box / num_positive_samples)
+# # (2) Weighted Relative Accuracy (WRacc), does not need constraint on box size
+# objective = optimizer.maximize(num_positive_samples_in_box / num_samples -
+#                                num_samples_in_box * num_positive_samples / (num_samples ** 2))
+# # (3) Precision, should be combined with a lower bound on box size (else trivial)
+# objective = optimizer.maximize(num_positive_samples_in_box / num_samples_in_box)
+
+# Constraint type 1: Identify for each sample if it is in the subgroup's box or not (if in box,
+# then LB needs to be <= feature value and UB >= feature value for all features of the instance)
+for i in range(num_samples):
+    expr_list = []
+    for j in range(num_features):
+        k_1 = [k for k, x in enumerate(unique_feature_values[j]) if float(X.iloc[i, j]) == x][0]
+        expr_list.append(z3.Or([lower_bounds[j][k_2] for k_2 in range(k_1 + 1)]))
+        expr_list.append(z3.Or([upper_bounds[j][k_2] for k_2 in range(k_1, len(upper_bounds[j]))]))
+    optimizer.add(is_sample_in_box[i] == z3.And(expr_list))
+
+for j in range(num_features):
+    # Contraint type 2: Relationship between lower and upper bounds (if a particular feature value
+    # is UB, then a lower or equal value must be LB; alternatively: higher value may not be LB)
+    for k_1 in range(len(upper_bounds[j]) - 1):
+        optimizer.add(z3.Implies(upper_bounds[j][k_1],
+                                 z3.Or([lower_bounds[j][k_2] for k_2 in range(k_1 + 1)])))
+    # Constraint type 3: Select exactly one LB and one UB for each feature
+    optimizer.add(z3.AtLeast(*lower_bounds[j], 1))
+    optimizer.add(z3.AtMost(*lower_bounds[j], 1))
+    optimizer.add(z3.AtLeast(*upper_bounds[j], 1))
+    optimizer.add(z3.AtMost(*upper_bounds[j], 1))
+
+# Constraint type 4: Count samples in box
+optimizer.add(num_samples_in_box == z3.Sum([z3.If(box_var, 1, 0) for box_var in is_sample_in_box]))
+
+# Constraint type 5: Count positive samples in box
+optimizer.add(num_positive_samples_in_box == z3.Sum([z3.If(box_var, 1, 0) for box_var, target
+                                                     in zip(is_sample_in_box, y) if target == positive_class]))
+
+# Constraint type 6 (objective-dependent): Upper-bound number of samples in box (else optimization
+# of recall trivial; unnecessary for for WRacc; lower bound necessary for precision)
+optimizer.add(num_samples_in_box <= num_positive_samples)
+
+start_time = time.perf_counter()
+result = optimizer.check()
+end_time = time.perf_counter()
+print('[MaxSAT] Result:', result)
+print('[MaxSAT] Time:', round(end_time - start_time, 3), 's')
+
+print(f'[MaxSAT] Overall: {num_samples} samples, {num_positive_samples} positive')
+print(f'[MaxSAT] Box: {optimizer.model()[num_samples_in_box]} samples,',
+      f'{optimizer.model()[num_positive_samples_in_box]} positive')
+if isinstance(objective.value(), z3.IntNumRef):
+    print(f'[MaxSAT] Objective: {objective.value()}')
+else:  # RatNumRef
+    print('[MaxSAT] Objective:', round(objective.value().numerator_as_long() /
+                                       objective.value().denominator_as_long(), 2))
+lower_bound_values = [feature_values[[k for k, var in enumerate(lb_variables)
+                                      if bool(optimizer.model()[var])][0]]
+                      for lb_variables, feature_values in zip(lower_bounds, unique_feature_values)]
+upper_bound_values = [feature_values[[k for k, var in enumerate(ub_variables)
+                                      if bool(optimizer.model()[var])][0]]
+                      for ub_variables, feature_values in zip(upper_bounds, unique_feature_values)]
+# For plotting the boxes, see above
