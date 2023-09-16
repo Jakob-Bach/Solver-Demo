@@ -12,6 +12,7 @@ Use cases include:
 |MIP model (and greedy algorithm) of decision tree for selecting algorithm configurations|`python_solvers/configuration_selection_tree_demo.py`|||
 |MIP/SMT models of different filter feature-selection techniques|`python_solvers/filter_fs_benchmark.py`|[repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection)|[paper](https://doi.org/10.48550/arXiv.2307.11607)|
 |MIP/SMT models of multi-task feature selection inspired by solver portfolios|`python_solvers/fs_portfolio_demo.py`|||
+|SMT model of discovering functional dependencies|`python_solvers/functional_dependency_demo.py`|||
 |MIP models of different set-cover problems|`python_solvers/set_cover_demo.py`|||
 |MIP/SMT models of the (simultaneous) alternative-feature-selection problem|`python_solvers/simultaneous_afs_benchmark.py`|[repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection)|[paper](https://doi.org/10.48550/arXiv.2307.11607)|
 |MIP/SMT models of the k-portfolio problem|`python_solvers/small_portfolios_demo.py`|[repo](https://github.com/Jakob-Bach/Small-Portfolios)|[paper](https://doi.org/10.4230/LIPIcs.SAT.2022.2)|
