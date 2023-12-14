@@ -211,7 +211,7 @@ model.add_constr(num_samples_in_box <= num_positive_samples)
 
 # # Constraint type 6 (optional): Limit number of features used, e.g., to 50% of total number;
 # # seems to speed up the MIP optimization
-# is_feature_used = [model.add_var(name='f_{j}', var_type=mip.BINARY) for j in range(num_features)]
+# is_feature_used = [model.add_var(name=f'f_{j}', var_type=mip.BINARY) for j in range(num_features)]
 # for j in range(num_features):
 #     # model.add_constr(mip.xsum(1 - is_value_in_box_lb[i][j] for i in range(num_samples)) +
 #     #                  mip.xsum(1 - is_value_in_box_ub[i][j] for i in range(num_samples)) <=
@@ -223,6 +223,15 @@ model.add_constr(num_samples_in_box <= num_positive_samples)
 #     model.add_constr(is_feature_used[j] <=
 #                       mip.xsum(1 - is_value_in_box_lb[i][j] for i in range(num_samples)) +
 #                       mip.xsum(1 - is_value_in_box_ub[i][j] for i in range(num_samples)))
+#     # # Alternative modeling option (faster one some data, slower on others) with less
+#     # # constraints, similar to SMT, but using big M for implications:
+#     # # If (LB > feature's min value) or (UB < feature's max value), then feature used (modeling
+#     # # other direction of implication not necessary as long as we use inequality instead of
+#     # # equality on num features used; optimizer has natural incentive to only mark features as
+#     # # used that are actually used, but if some unused ones marked, solution still valid)
+#     # M = 2 * (feature_maxima[j] - feature_minima[j])  # large positive value
+#     # model.Add(lower_bounds[j] - feature_minima[j] <= M * is_feature_used[j])
+#     # model.Add(feature_maxima[j] - upper_bounds[j] <= M * is_feature_used[j])
 # model.add_constr(mip.xsum(is_feature_used) <= 0.5 * num_features)
 
 start_time = time.perf_counter()

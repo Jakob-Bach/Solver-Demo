@@ -83,10 +83,10 @@ def search_fds_solver(dataset: pd.DataFrame, max_lhs_size: Optional[int] = None,
         for (lhs_var, rhs_var) in zip(lhs_vars, rhs_vars):
             solver.add(z3.Not(z3.And(lhs_var, rhs_var)))
     # Constraint type 3: Make sure LHS identifies RHS uniquely -> For each pair of tuples and each
-    # RHS column (fortunately, we need not iterate over colum combinations), if the tuples differ
+    # RHS column (fortunately, we need not iterate over column combinations), if the tuples differ
     # in their RHS column, then they should also differ in at least one value of their LHS columns
     for i in range(0, len(dataset) - 1):  # First tuple
-        for j in range(i, len(dataset)):  # Second tuple
+        for j in range(i + 1, len(dataset)):  # Second tuple
             is_col_value_diff = dataset.iloc[i] != dataset.iloc[j]
             lhs_diff_vars = [var for var, is_diff in zip(lhs_vars, is_col_value_diff) if is_diff]
             rhs_diff_vars = [var for var, is_diff in zip(rhs_vars, is_col_value_diff) if is_diff]
