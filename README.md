@@ -9,6 +9,7 @@ Use cases include:
 |---|---|---|---|
 |Counting (by enumerating) all solutions for a simple AND or OR formula|`c_solvers/*`, `java_solvers/*`, `python_solvers/Solver_Enumeration_Benchmark.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
 |MIP/SMT models of a simple knapsack problem|`java_solvers/ChocoOptimizationDemo.java`, `python_solvers/Knapsack_Demo.ipynb`, `python_solvers/Z3_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
+|SMT model of finding alternative subgroup descriptions|`python_solvers/alternative_subgroup_description_demo.py`|||
 |MIP model (and greedy algorithm) of decision tree for selecting algorithm configurations|`python_solvers/configuration_selection_tree_demo.py`|||
 |MIP/SMT models of different filter feature-selection techniques|`python_solvers/filter_fs_benchmark.py`|[repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection)|[paper](https://doi.org/10.48550/arXiv.2307.11607)|
 |MIP/SMT models of multi-task feature selection inspired by solver portfolios|`python_solvers/fs_portfolio_demo.py`|||
