@@ -5,33 +5,33 @@ This repo serves as a playground for various research projects.
 
 Use cases include:
 
-|Use case|File(s)/folder(s)|Related project repo|Related paper|
+| Use case | File(s)/folder(s) | Related project repo | Related paper |
 |---|---|---|---|
-|Counting (by enumerating) all solutions for a simple AND or OR formula|`c_solvers/*`, `java_solvers/*`, `python_solvers/Solver_Enumeration_Benchmark.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
-|MIP/SMT models of a simple knapsack problem|`java_solvers/ChocoOptimizationDemo.java`, `python_solvers/Knapsack_Demo.ipynb`, `python_solvers/Z3_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z)|
+| Counting (by enumerating) all solutions for a simple AND or OR formula | `c_solvers/*`, `java_solvers/*`, `python_solvers/Solver_Enumeration_Benchmark.ipynb` | [repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z) |
+| MIP/SMT models of a simple knapsack problem | `java_solvers/ChocoOptimizationDemo.java`, `python_solvers/Knapsack_Demo.ipynb`, `python_solvers/Z3_Demo.ipynb` | [repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z) |
 | SMT model of finding alternative subgroup descriptions | `python_solvers/alternative_subgroup_description_demo.py` | [repo](https://github.com/Jakob-Bach/Constrained-Subgroup-Discovery) | [arxiv](https://doi.org/10.48550/arXiv.2406.01411) |
-|MIP model (and greedy algorithm) of decision tree for selecting algorithm configurations|`python_solvers/configuration_selection_tree_demo.py`|||
-| MIP/SMT models of different filter feature-selection techniques | `python_solvers/filter_fs_benchmark.py` | [repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection) | [arXiv](https://doi.org/10.48550/arXiv.2307.11607), [journal](https://doi.org/10.1007/s41060-024-00527-8 |
-|MIP/SMT models of multi-task feature selection inspired by solver portfolios|`python_solvers/fs_portfolio_demo.py`|||
-|SMT model of discovering functional dependencies|`python_solvers/functional_dependency_demo.py`|||
-|MIP models of different set-cover problems|`python_solvers/set_cover_demo.py`|||
+| MIP model (and greedy algorithm) of decision tree for selecting algorithm configurations | `python_solvers/configuration_selection_tree_demo.py` | | |
+| MIP/SMT models of different filter feature-selection techniques | `python_solvers/filter_fs_benchmark.py` | [repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection) | [arXiv](https://doi.org/10.48550/arXiv.2307.11607), [journal](https://doi.org/10.1007/s41060-024-00527-8) |
+| MIP/SMT models of multi-task feature selection inspired by solver portfolios | `python_solvers/fs_portfolio_demo.py` | | |
+| SMT model of discovering functional dependencies | `python_solvers/functional_dependency_demo.py` | | |
+| MIP models of different set-cover problems | `python_solvers/set_cover_demo.py` | | |
 | MIP/SMT models of the (simultaneous) alternative-feature-selection problem | `python_solvers/simultaneous_afs_benchmark.py` | [repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection) | [arXiv](https://doi.org/10.48550/arXiv.2307.11607), [journal](https://doi.org/10.1007/s41060-024-00527-8) |
-|MIP/SMT models of the k-portfolio problem|`python_solvers/small_portfolios_demo.py`|[repo](https://github.com/Jakob-Bach/Small-Portfolios)|[paper](https://doi.org/10.4230/LIPIcs.SAT.2022.2)|
-|SMT model of a simultaneous multi-round auction |`python_solvers/SMR_Auction_Demo.ipynb`|[repo](https://github.com/Jakob-Bach/Analyzing-Auction-Verification)|[paper](https://doi.org/10.1109/ACCESS.2022.3154445)|
+| MIP/SMT models of the k-portfolio problem | `python_solvers/small_portfolios_demo.py` | [repo](https://github.com/Jakob-Bach/Small-Portfolios)|[paper](https://doi.org/10.4230/LIPIcs.SAT.2022.2) |
+| SMT model of a simultaneous multi-round auction | `python_solvers/SMR_Auction_Demo.ipynb` | [repo](https://github.com/Jakob-Bach/Analyzing-Auction-Verification) | [paper](https://doi.org/10.1109/ACCESS.2022.3154445)|
 | MIP/SMT models of the subgroup-discovery problem | `python_solvers/subgroup_discovery_demo.py` | [repo](https://github.com/Jakob-Bach/Constrained-Subgroup-Discovery) | [arxiv](https://doi.org/10.48550/arXiv.2406.01411) |
 
 ## Testing Solvers for Constrained Feature Selection
 
-|Solver|Languages|Hints|
+| Solver | Languages | Hints |
 |---|---|---|
-|[Choco](https://choco-solver.org/) |Java|also an optimizer|
-|[Gecode](https://www.gecode.org/) |C++|also an optimizer|
-|[GEKKO](https://gekko.readthedocs.io/en/latest/) |Python|mainly an optimizer|
-|[Google OR Tools](https://developers.google.com/optimization/introduction/overview) |Java, Python|also an optimizer|
-|[PicoSAT](https://pypi.org/project/pycosat/) |Python||
-|[pySMT](https://github.com/pysmt/pysmt) |Python|wraps various solvers (e.g., `MathSAT`, `Z3`)|
-|[python-constraint](https://labix.org/python-constraint) |Python||
-|[Z3](https://github.com/Z3Prover/z3/wiki) |C++, Java, Python|also an optimizer|
+| [Choco](https://choco-solver.org/) | Java | also an optimizer |
+| [Gecode](https://www.gecode.org/) | C++ | also an optimizer |
+| [GEKKO](https://gekko.readthedocs.io/en/latest/) | Python | mainly an optimizer |
+| [Google OR Tools](https://developers.google.com/optimization/introduction/overview) | Java, Python | also an optimizer |
+| [PicoSAT](https://pypi.org/project/pycosat/) | Python | |
+| [pySMT](https://github.com/pysmt/pysmt) | Python | wraps various solvers (e.g., `MathSAT`, `Z3`) |
+| [python-constraint](https://labix.org/python-constraint) | Python | |
+| [Z3](https://github.com/Z3Prover/z3/wiki) | C++, Java, Python | also an optimizer |
 
 For all three languages (C++, Java, Python), we also implement own solution counters/enumerators:
 
