@@ -83,8 +83,8 @@ def cfs_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
     selection_variables = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
     # for chosen approach to linearize fraction term (relevance divided by redundancy),
     # see Chang (2001) "On the polynomial mixed 0-1 fractional programming problems"
-    denominator_var = optimizer.NumVar(name='y', lb=0, ub=1)
-    relevance_terms = []  # note that we square relevance term to remove sqrt from redundacy term
+    denominator_var = optimizer.NumVar(name='y', lb=0, ub=1)  # inverse of denominator
+    relevance_terms = []  # squared to remove sqrt() from denominator (redundancy expression)
     redundancy_terms = []
     M = X.shape[1] ** 2 + 1  # some large value we use to deactivate constraints conditionally
     for i in range(len(selection_variables)):
@@ -122,12 +122,12 @@ def cfs_optimizer_mip(k: int) -> Tuple[float, List[bool]]:
 # total number of features)
 def cfs_optimizer_mip2(k: int) -> Tuple[float, List[bool]]:
     optimizer = pywraplp.Solver_CreateSolver('CBC')
-    x = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]
-    y = optimizer.NumVar(name='y', lb=0, ub=1)  # auxiliary variable for denominator
-    relevance_terms = []
+    x = [optimizer.BoolVar('x_' + str(i)) for i in range(X.shape[1])]  # selection variables
+    y = optimizer.NumVar(name='y', lb=0, ub=1)  # auxiliary variable for inverse of denominator
+    relevance_terms = []  # squared to remove sqrt() from denominator (redundancy expression)
     redundancy_terms = []
     M = X.shape[1] ** 2 + 1  # some large value we use to deactivate constraints conditionally
-    t_vars = []  # auxiliary variables for linearizing x_i * y
+    t_vars = []  # auxiliary variables for linearizing x_i * y (then part of further linerizations)
     for i in range(len(x)):
         # Linearization: t_i = x_i * y (follows Equation (11) in Nguyen et al. (2010))
         t_i = optimizer.NumVar(name='t_' + str(i), lb=0, ub=M)
@@ -137,7 +137,9 @@ def cfs_optimizer_mip2(k: int) -> Tuple[float, List[bool]]:
         t_vars.append(t_i)
     for i in range(len(x)):
         # Linearization: z_i = x_i * (A_i(x) * y) (does not exactly follow Equation (14) in Nguyen
-        # et al. (2010), since max objective instead of min objective)
+        # et al. (2010), since max objective instead of min objective); A_i(x) represents relevance
+        # sum of Feature i regarding all other selected features (sum instead of single term since
+        # numerator squared; t_j instead of y ensures that only selected Features j considered)
         z_i = optimizer.NumVar(name='z_' + str(i), lb=0, ub=M)
         yA_i = optimizer.Sum([target_correlation[i] * target_correlation[j] * t_vars[j]
                              for j in range(len(x))])  # A_i(x) * y
@@ -145,17 +147,18 @@ def cfs_optimizer_mip2(k: int) -> Tuple[float, List[bool]]:
         optimizer.Add(z_i <= M * x[i])
         relevance_terms.append(z_i)
         v_i = optimizer.NumVar(name='v_' + str(i), lb=0, ub=M)
-        # Linearization: v_i = x_i * (B_i(x) * y) (follows Equation (15) in Nguyen et al. (2010))
+        # Linearization: v_i = x_i * (B_i(x) * y) (follows Equation (15) in Nguyen et al. (2010));
+        # B_i(x) represents redundancy sum of Feature i regarding all other selected features
         yB_i = optimizer.Sum([feature_correlation[i, j] * t_vars[j]
                               for j in range(len(x)) if i != j])  # B_i(x) * y
         optimizer.Add(M * (x[i] - 1) + yB_i <= v_i)
         optimizer.Add(v_i <= M * (1 - x[i]) + yB_i)
         optimizer.Add(v_i <= M * x[i])
         redundancy_terms.append(v_i)
-    redundancy_terms.append(k * y)
-    objective = optimizer.Sum(relevance_terms)
+    redundancy_terms.append(k * y)  # redundancy = k * y + sum_i(B_i(x) * x_i * y)
+    objective = optimizer.Sum(relevance_terms)  # sum_i(A_i(x) * x_i * y)
     objective = optimizer.Maximize(objective)
-    optimizer.Add(optimizer.Sum(redundancy_terms) == 1)
+    optimizer.Add(optimizer.Sum(redundancy_terms) == 1)  # denominator times its inverse = 1
     optimizer.Add(optimizer.Sum(x) == k)
     return optimize_mip(optimizer=optimizer, selection_variables=x)
 
