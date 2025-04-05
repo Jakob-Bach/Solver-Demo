@@ -9,7 +9,7 @@ Use cases include:
 |---|---|---|---|
 | Counting (by enumerating) all solutions for a simple AND or OR formula | `c_solvers/*`, `java_solvers/*`, `python_solvers/Solver_Enumeration_Benchmark.ipynb` | [repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z) |
 | MIP/SMT models of a simple knapsack problem | `java_solvers/ChocoOptimizationDemo.java`, `python_solvers/Knapsack_Demo.ipynb`, `python_solvers/Z3_Demo.ipynb` | [repo](https://github.com/Jakob-Bach/Constrained-Filter-Feature-Selection)|[paper](https://doi.org/10.1007/s42979-022-01338-z) |
-| SMT model of finding alternative subgroup descriptions | `python_solvers/alternative_subgroup_description_demo.py` | [repo](https://github.com/Jakob-Bach/Constrained-Subgroup-Discovery) | [arxiv](https://doi.org/10.48550/arXiv.2406.01411) |
+| SMT model of finding alternative subgroup descriptions | `python_solvers/alternative_subgroup_description_demo.py` | [repo](https://github.com/Jakob-Bach/Constrained-Subgroup-Discovery) | [arxiv](https://doi.org/10.48550/arXiv.2406.01411), [conference](https://doi.org/10.1145/3725358) |
 | MIP model (and greedy algorithm) of decision tree for selecting algorithm configurations | `python_solvers/configuration_selection_tree_demo.py` | | |
 | MIP/SMT models of different filter feature-selection techniques | `python_solvers/filter_fs_benchmark.py` | [repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection) | [arXiv](https://doi.org/10.48550/arXiv.2307.11607), [journal](https://doi.org/10.1007/s41060-024-00527-8) |
 | MIP/SMT models of multi-task feature selection inspired by solver portfolios | `python_solvers/fs_portfolio_demo.py` | | |
@@ -18,7 +18,7 @@ Use cases include:
 | MIP/SMT models of the (simultaneous) alternative-feature-selection problem | `python_solvers/simultaneous_afs_benchmark.py` | [repo](https://github.com/Jakob-Bach/Alternative-Feature-Selection) | [arXiv](https://doi.org/10.48550/arXiv.2307.11607), [journal](https://doi.org/10.1007/s41060-024-00527-8) |
 | MIP/SMT models of the k-portfolio problem | `python_solvers/small_portfolios_demo.py` | [repo](https://github.com/Jakob-Bach/Small-Portfolios)|[paper](https://doi.org/10.4230/LIPIcs.SAT.2022.2) |
 | SMT model of a simultaneous multi-round auction | `python_solvers/SMR_Auction_Demo.ipynb` | [repo](https://github.com/Jakob-Bach/Analyzing-Auction-Verification) | [paper](https://doi.org/10.1109/ACCESS.2022.3154445)|
-| MIP/SMT models of the subgroup-discovery problem | `python_solvers/subgroup_discovery_demo.py` | [repo](https://github.com/Jakob-Bach/Constrained-Subgroup-Discovery) | [arxiv](https://doi.org/10.48550/arXiv.2406.01411) |
+| MIP/SMT models of the subgroup-discovery problem | `python_solvers/subgroup_discovery_demo.py` | [repo](https://github.com/Jakob-Bach/Constrained-Subgroup-Discovery) | [arxiv](https://doi.org/10.48550/arXiv.2406.01411), [conference](https://doi.org/10.1145/3725358) |
 
 ## Testing Solvers for Constrained Feature Selection
 
